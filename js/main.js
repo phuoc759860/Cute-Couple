@@ -704,6 +704,35 @@
   const EMOJI_FONT =
     '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
 
+  const CUSTOM_STICKERS = [
+    "1028-sex-2.png",
+    "1917-nom-fast.png",
+    "2026-smoking-rat.jpg",
+    "3516-cat-meme-2.png",
+    "4018-meme-brain-11.png",
+    "4458-yeaaaa.gif",
+    "4727-ishowspeed.png",
+    "6273-what-the.png",
+    "6543-stop-pls.png",
+    "6665-scubaa.gif",
+    "7444-meme-brain-7.png",
+    "8765-chad-21.png",
+    "9066-let-em-cook.png",
+    "9144-the-rock.png",
+  ];
+
+  const stickerImgCache = new Map();
+  function getStickerImage(src) {
+    if (!stickerImgCache.has(src)) {
+      const img = new Image();
+      img.src = src;
+      stickerImgCache.set(src, img);
+    }
+    return stickerImgCache.get(src);
+  }
+
+  const stickerImagesGrid = $("#stickerImagesGrid");
+
   const editor = {
     baseImage: null,
     frame: "none",
@@ -767,16 +796,33 @@
       const el = document.createElement("span");
       el.className = "sticker-el" + (i === editor.selected ? " selected" : "");
       el.dataset.index = i;
-      el.textContent = s.content;
-      if (s.type === "text") {
-        el.style.fontFamily = s.font;
-        el.style.color = s.color;
-      }
-      el.style.fontSize = `${Math.max(8, Math.round(s.size * layerWidth))}px`;
-      el.style.left = `${(s.x * 100).toFixed(3)}%`;
-      el.style.top = `${(s.y * 100).toFixed(3)}%`;
       el.addEventListener("pointerdown", onStickerPointerDown);
       el.addEventListener("dblclick", onStickerDblClick);
+      if (s.type === "image") {
+        const img = document.createElement("img");
+        img.src = s.src;
+        img.alt = "sticker";
+        el.appendChild(img);
+        const box = Math.max(10, s.size * layerWidth);
+        const si = getStickerImage(s.src);
+        const ar =
+          si.naturalWidth && si.naturalHeight ? si.naturalWidth / si.naturalHeight : 1;
+        let w = box;
+        let h = box;
+        if (ar > 1) h = Math.round(box / ar);
+        else w = Math.round(box * ar);
+        el.style.width = `${w}px`;
+        el.style.height = `${h}px`;
+      } else {
+        el.textContent = s.content;
+        if (s.type === "text") {
+          el.style.fontFamily = s.font;
+          el.style.color = s.color;
+        }
+        el.style.fontSize = `${Math.max(8, Math.round(s.size * layerWidth))}px`;
+      }
+      el.style.left = `${(s.x * 100).toFixed(3)}%`;
+      el.style.top = `${(s.y * 100).toFixed(3)}%`;
       stickerLayer.appendChild(el);
     });
   }
@@ -871,6 +917,25 @@
     addSticker({ type: "emoji", content: btn.dataset.sticker, x: 0.5, y: 0.5, size: 0.16 });
   });
 
+  CUSTOM_STICKERS.forEach((file) => {
+    const src = "Stickers/" + file;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "sticker-img-btn";
+    btn.dataset.stickerSrc = src;
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = "sticker";
+    btn.appendChild(img);
+    stickerImagesGrid.appendChild(btn);
+  });
+
+  stickerImagesGrid.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-sticker-src]");
+    if (!btn) return;
+    addSticker({ type: "image", src: btn.dataset.stickerSrc, x: 0.5, y: 0.5, size: 0.25 });
+  });
+
   stickerSizeEl.addEventListener("input", () => {
     const s = editor.stickers[editor.selected];
     if (!s) return;
@@ -939,53 +1004,55 @@
     }
   }
 
-  function compositeEditedImage() {
-    return new Promise((resolve, reject) => {
-      const base = editor.baseImage;
-      if (!base) {
-        reject(new Error("No image to render"));
-        return;
+  async function compositeEditedImage() {
+    const base = editor.baseImage;
+    if (!base) throw new Error("No image to render");
+    const canvas = document.createElement("canvas");
+    canvas.width = base.w;
+    canvas.height = base.h;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, base.w, base.h);
+    ctx.drawImage(base.img, 0, 0, base.w, base.h);
+
+    for (const s of editor.stickers) {
+      if (s.type === "image") {
+        const img = getStickerImage(s.src);
+        try {
+          await img.decode();
+        } catch (_) {}
+        const box = Math.max(10, s.size * base.w);
+        const ar =
+          img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
+        let dw = box;
+        let dh = box;
+        if (ar > 1) dh = box / ar;
+        else dw = box * ar;
+        ctx.drawImage(img, s.x * base.w - dw / 2, s.y * base.h - dh / 2, dw, dh);
+        continue;
       }
-      const canvas = document.createElement("canvas");
-      canvas.width = base.w;
-      canvas.height = base.h;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, base.w, base.h);
-      ctx.drawImage(base.img, 0, 0, base.w, base.h);
+      const px = Math.max(6, s.size * base.w);
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      if (s.type === "text") {
+        ctx.font = `${px}px ${s.font}`;
+        ctx.fillStyle = s.color;
+        ctx.shadowColor = "rgba(0,0,0,0.35)";
+        ctx.shadowBlur = Math.max(2, px * 0.12);
+        ctx.shadowOffsetY = Math.max(1, px * 0.05);
+      } else {
+        ctx.font = `${px}px ${EMOJI_FONT}`;
+      }
+      ctx.fillText(s.content, s.x * base.w, s.y * base.h);
+      ctx.restore();
+    }
 
-      editor.stickers.forEach((s) => {
-        const px = Math.max(6, s.size * base.w);
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        if (s.type === "text") {
-          ctx.font = `${px}px ${s.font}`;
-          ctx.fillStyle = s.color;
-          ctx.shadowColor = "rgba(0,0,0,0.35)";
-          ctx.shadowBlur = Math.max(2, px * 0.12);
-          ctx.shadowOffsetY = Math.max(1, px * 0.05);
-        } else {
-          ctx.font = `${px}px ${EMOJI_FONT}`;
-        }
-        ctx.fillText(s.content, s.x * base.w, s.y * base.h);
-        ctx.restore();
-      });
+    drawFrame(ctx, base.w, base.h, editor.frame);
 
-      drawFrame(ctx, base.w, base.h, editor.frame);
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(new File([blob], "memory.jpg", { type: "image/jpeg" }));
-          } else {
-            reject(new Error("Could not render your edits"));
-          }
-        },
-        "image/jpeg",
-        0.92
-      );
-    });
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+    if (!blob) throw new Error("Could not render your edits");
+    return new File([blob], "memory.jpg", { type: "image/jpeg" });
   }
 
   function drawFrame(ctx, w, h, frame) {
