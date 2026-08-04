@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Our love story â€” a beautiful collection of our favorite memories together." />
-  <title>Our Love Album â€” Forever Together</title>
+  <meta name="description" content="Our love story — a beautiful collection of our favorite memories together." />
+  <title>Our Love Album — Forever Together</title>
   <link rel="icon" href="images/favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -50,7 +50,7 @@
       <div class="floating-hearts" id="floatingHearts"></div>
     </div>
     <div class="hero-content">
-      <p class="hero-eyebrow">â€” Our Love Story â€”</p>
+      <p class="hero-eyebrow">— Our Love Story —</p>
       <h1 class="hero-title">Every Picture Holds a Piece of Us</h1>
       <p class="hero-subtitle">
         A little corner of the internet where our sweetest memories live forever.
@@ -66,7 +66,7 @@
       <div class="hero-stats">
         <div class="stat"><strong>2</strong><span>Years Together</span></div>
         <div class="stat"><strong>14</strong><span>Countries</span></div>
-        <div class="stat"><strong>âˆž</strong><span>Love</span></div>
+        <div class="stat"><strong>∞</strong><span>Love</span></div>
       </div>
     </div>
     <a href="#gallery" class="scroll-hint" aria-label="Scroll down">
@@ -82,12 +82,21 @@
       <p class="section-sub">A curated collection of the moments we never want to forget.</p>
     </div>
 
-    <div class="gallery-filters" id="galleryFilters">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="dates">Dates</button>
-      <button class="filter-btn" data-filter="travel">Travel</button>
-      <button class="filter-btn" data-filter="celebrations">Celebrations</button>
-      <button class="filter-btn" data-filter="everyday">Everyday</button>
+    <div class="gallery-toolbar">
+      <div class="gallery-filters" id="galleryFilters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="dates">Dates</button>
+        <button class="filter-btn" data-filter="travel">Travel</button>
+        <button class="filter-btn" data-filter="celebrations">Celebrations</button>
+        <button class="filter-btn" data-filter="everyday">Everyday</button>
+      </div>
+      <button class="add-photo-btn" id="addPhotoBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Add Photo
+      </button>
+      <input type="file" id="photoInput" accept="image/*" hidden />
     </div>
 
     <div class="gallery-grid" id="galleryGrid">
@@ -239,19 +248,19 @@
     </div>
     <div class="notes-grid">
       <blockquote class="note-card reveal">
-        <span class="note-quote">â€œ</span>
+        <span class="note-quote">“</span>
         <p>You're my favorite hello and my hardest goodbye.</p>
-        <cite>â€” Always yours</cite>
+        <cite>— Always yours</cite>
       </blockquote>
       <blockquote class="note-card reveal">
-        <span class="note-quote">â€œ</span>
+        <span class="note-quote">“</span>
         <p>I loved you yesterday, I love you still, I always have, I always will.</p>
-        <cite>â€” Forever</cite>
+        <cite>— Forever</cite>
       </blockquote>
       <blockquote class="note-card reveal">
-        <span class="note-quote">â€œ</span>
+        <span class="note-quote">“</span>
         <p>In a sea of people, my eyes will always look for you.</p>
-        <cite>â€” Patiently yours</cite>
+        <cite>— Patiently yours</cite>
       </blockquote>
     </div>
   </section>
@@ -261,9 +270,41 @@
     <div class="footer-heart">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
     </div>
-    <p class="footer-text">Made with <span class="footer-love">â™¥</span> for Aya, by Leo</p>
-    <p class="footer-year">Â© 2026 â€” Every day with you is a gift.</p>
+    <p class="footer-text">Made with <span class="footer-love">♥</span> for Aya, by Leo</p>
+    <p class="footer-year">© 2026 — Every day with you is a gift.</p>
   </footer>
+
+  <!-- Add Photo Modal -->
+  <div class="modal" id="photoModal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="photoModalTitle">
+      <button class="modal-close" id="photoModalClose" aria-label="Close">&times;</button>
+      <h3 id="photoModalTitle">Add a New Memory</h3>
+      <div class="modal-preview" id="photoPreview">
+        <img id="photoPreviewImg" alt="Preview" />
+      </div>
+      <label class="field">
+        <span>Title</span>
+        <input type="text" id="photoTitle" maxlength="60" placeholder="e.g. Our day at the beach" />
+      </label>
+      <label class="field">
+        <span>Caption</span>
+        <textarea id="photoDesc" rows="2" maxlength="140" placeholder="A little note about this moment"></textarea>
+      </label>
+      <label class="field">
+        <span>Category</span>
+        <select id="photoCategory">
+          <option value="dates">Dates</option>
+          <option value="travel">Travel</option>
+          <option value="celebrations">Celebrations</option>
+          <option value="everyday">Everyday</option>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="photoCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="photoSave" type="button">Save Photo</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Lightbox -->
   <div class="lightbox" id="lightbox" aria-hidden="true">
@@ -282,4 +323,3 @@
   <script src="js/main.js"></script>
 </body>
 </html>
-

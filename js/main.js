@@ -7,6 +7,15 @@
 
   const COUNTER_EVENT = new Date("2026-08-14T00:00:00").getTime();
 
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   /* ---------- Preloader ---------- */
   window.addEventListener("load", () => {
     setTimeout(() => $("#preloader").classList.add("hidden"), 400);
@@ -74,37 +83,46 @@
   for (let i = 0; i < 12; i++) setTimeout(spawnHeart, i * 260);
 
   /* ---------- Gallery filtering ---------- */
+  const galleryGrid = $("#galleryGrid");
   const filterBtns = $$(".filter-btn");
-  const cards = $$(".card");
   let activeCategory = "all";
+
+  function visibleCards() {
+    return $$(".card", galleryGrid).filter((c) => !c.classList.contains("hide"));
+  }
+
+  function applyFilter() {
+    const cards = $$(".card", galleryGrid);
+    cards.forEach((card) => {
+      const match = activeCategory === "all" || card.dataset.category === activeCategory;
+      card.classList.toggle("hide", !match);
+    });
+  }
 
   filterBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       filterBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeCategory = btn.dataset.filter;
-      cards.forEach((card) => {
-        const match = activeCategory === "all" || card.dataset.category === activeCategory;
-        card.classList.toggle("hide", !match);
-      });
+      applyFilter();
     });
   });
 
   /* ---------- Tilt effect ---------- */
-  const tiltCards = $$("[data-tilt]");
-  if (window.matchMedia("(hover: hover)").matches && "ontouchstart" in window === false) {
-    tiltCards.forEach((card) => {
-      card.addEventListener("mousemove", (e) => {
-        const r = card.getBoundingClientRect();
-        const x = (e.clientX - r.left) / r.width - 0.5;
-        const y = (e.clientY - r.top) / r.height - 0.5;
-        card.style.transform = `perspective(900px) rotateY(${x * 7}deg) rotateX(${-y * 7}deg) translateY(-4px)`;
-      });
-      card.addEventListener("mouseleave", () => {
-        card.style.transform = "";
-      });
+  function bindTilt(card) {
+    if (!window.matchMedia("(hover: hover)").matches) return;
+    if ("ontouchstart" in window) return;
+    card.addEventListener("mousemove", (e) => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = `perspective(900px) rotateY(${x * 7}deg) rotateX(${-y * 7}deg) translateY(-4px)`;
+    });
+    card.addEventListener("mouseleave", () => {
+      card.style.transform = "";
     });
   }
+  $$("[data-tilt]", galleryGrid).forEach(bindTilt);
 
   /* ---------- Lightbox ---------- */
   const lightbox = $("#lightbox");
@@ -115,19 +133,17 @@
   const lightboxNext = $("#lightboxNext");
   let lightboxIndex = 0;
 
-  function visibleCards() {
-    return cards.filter((c) => !c.classList.contains("hide"));
-  }
-
   function openLightbox(index) {
     const visible = visibleCards();
     if (!visible.length) return;
     const clamped = Math.max(0, Math.min(index, visible.length - 1));
     const card = visible[clamped];
     const img = $("img", card);
+    const title = $(".card-title", card).textContent;
+    const desc = $(".card-desc", card).textContent;
     lightboxImg.src = img.src;
     lightboxImg.alt = img.alt;
-    lightboxCaption.textContent = `${$(".card-title", card).textContent} — ${$(".card-desc", card).textContent}`;
+    lightboxCaption.textContent = desc ? `${title} — ${desc}` : title;
     lightbox.classList.add("open");
     lightbox.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -140,12 +156,14 @@
     document.body.style.overflow = "";
   }
 
-  cards.forEach((card, i) => {
-    card.addEventListener("click", () => {
+  function bindCard(card) {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".card-delete")) return;
       const visible = visibleCards();
       openLightbox(visible.indexOf(card) === -1 ? 0 : visible.indexOf(card));
     });
-  });
+  }
+  $$(".card", galleryGrid).forEach(bindCard);
 
   lightboxClose.addEventListener("click", closeLightbox);
   lightboxPrev.addEventListener("click", () => openLightbox(lightboxIndex - 1));
@@ -158,6 +176,203 @@
     if (e.key === "Escape") closeLightbox();
     if (e.key === "ArrowLeft") openLightbox(lightboxIndex - 1);
     if (e.key === "ArrowRight") openLightbox(lightboxIndex + 1);
+  });
+
+  /* ---------- Saved photos (IndexedDB) ---------- */
+  const DB_NAME = "couple-album";
+  const DB_VERSION = 1;
+  const STORE = "photos";
+  let dbPromise = null;
+
+  function openDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      if (!("indexedDB" in window)) {
+        reject(new Error("IndexedDB not supported"));
+        return;
+      }
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          db.createObjectStore(STORE, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  }
+
+  async function idbRequest(mode, fn) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, mode);
+      const store = tx.objectStore(STORE);
+      const req = fn(store);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  const idbGetAll = () => idbRequest("readonly", (s) => s.getAll());
+  const idbPut = (record) => idbRequest("readwrite", (s) => s.put(record));
+  const idbDelete = (id) => idbRequest("readwrite", (s) => s.delete(id));
+
+  const DELETE_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>';
+
+  function makeSavedCard(record) {
+    const fig = document.createElement("figure");
+    fig.className = "card";
+    fig.dataset.category = record.category || "everyday";
+    fig.dataset.savedId = record.id;
+    fig.innerHTML = `
+      <img src="${record.dataUrl}" alt="${escapeHtml(record.title)}" />
+      <figcaption class="card-overlay">
+        <p class="card-date">${escapeHtml(record.dateLabel || "Added")}</p>
+        <h3 class="card-title">${escapeHtml(record.title || "Our Memory")}</h3>
+        <p class="card-desc">${escapeHtml(record.desc || "")}</p>
+      </figcaption>
+      <button class="card-delete" type="button" aria-label="Delete photo">${DELETE_ICON}</button>
+    `;
+    const del = $(".card-delete", fig);
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!window.confirm("Remove this photo from the album?")) return;
+      idbDelete(record.id).then(() => {
+        fig.remove();
+        showToast("Photo removed");
+      });
+    });
+    return fig;
+  }
+
+  async function loadSavedPhotos() {
+    try {
+      const records = await idbGetAll();
+      records
+        .sort((a, b) => b.addedAt - a.addedAt)
+        .forEach((r) => {
+          const card = makeSavedCard(r);
+          galleryGrid.appendChild(card);
+          bindCard(card);
+          bindTilt(card);
+        });
+      applyFilter();
+    } catch (err) {
+      console.warn("Could not load saved photos:", err);
+    }
+  }
+
+  /* ---------- Add Photo flow ---------- */
+  const addPhotoBtn = $("#addPhotoBtn");
+  const photoInput = $("#photoInput");
+  const photoModal = $("#photoModal");
+  const photoModalClose = $("#photoModalClose");
+  const photoCancel = $("#photoCancel");
+  const photoSave = $("#photoSave");
+  const photoPreviewImg = $("#photoPreviewImg");
+  const photoPreview = $("#photoPreview");
+  const photoTitle = $("#photoTitle");
+  const photoDesc = $("#photoDesc");
+  const photoCategory = $("#photoCategory");
+  let pendingDataUrl = null;
+
+  function openModal() {
+    photoModal.classList.add("open");
+    photoModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeModal() {
+    photoModal.classList.remove("open");
+    photoModal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  function resetModal() {
+    pendingDataUrl = null;
+    photoInput.value = "";
+    photoTitle.value = "";
+    photoDesc.value = "";
+    photoCategory.value = "everyday";
+    photoPreviewImg.removeAttribute("src");
+    photoPreview.innerHTML = '<span class="preview-empty">No image selected yet</span>';
+  }
+
+  addPhotoBtn.addEventListener("click", () => photoInput.click());
+  photoInput.addEventListener("change", () => {
+    const file = photoInput.files && photoInput.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Please choose an image file");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingDataUrl = reader.result;
+      photoPreviewImg.src = pendingDataUrl;
+      photoPreview.innerHTML = "";
+      photoPreview.appendChild(photoPreviewImg);
+      if (!photoTitle.value) {
+        photoTitle.value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+      }
+      openModal();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  photoModalClose.addEventListener("click", () => {
+    closeModal();
+    setTimeout(resetModal, 350);
+  });
+  photoCancel.addEventListener("click", () => {
+    closeModal();
+    setTimeout(resetModal, 350);
+  });
+  photoModal.addEventListener("click", (e) => {
+    if (e.target === photoModal) {
+      closeModal();
+      setTimeout(resetModal, 350);
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!photoModal.classList.contains("open")) return;
+    if (e.key === "Escape") {
+      closeModal();
+      setTimeout(resetModal, 350);
+    }
+  });
+
+  photoSave.addEventListener("click", async () => {
+    if (!pendingDataUrl) {
+      showToast("No image selected");
+      return;
+    }
+    const record = {
+      id: `saved-${Date.now()}`,
+      dataUrl: pendingDataUrl,
+      title: (photoTitle.value || "Our Memory").trim(),
+      desc: photoDesc.value.trim(),
+      category: photoCategory.value,
+      dateLabel: new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+      addedAt: Date.now(),
+    };
+    try {
+      await idbPut(record);
+      const card = makeSavedCard(record);
+      galleryGrid.appendChild(card);
+      bindCard(card);
+      bindTilt(card);
+      applyFilter();
+      closeModal();
+      setTimeout(resetModal, 350);
+      showToast("Photo saved to your album");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not save the photo");
+    }
   });
 
   /* ---------- Countdown ---------- */
@@ -203,14 +418,10 @@
     const toast = $("#toast");
     toast.textContent = msg;
     toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2600);
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove("show"), 2600);
   }
 
-  let hintShown = false;
-  window.addEventListener("keydown", (e) => {
-    if (!hintShown && e.key.toLowerCase() === "g") {
-      showToast("Tip: use ← → arrow keys in the lightbox");
-      hintShown = true;
-    }
-  });
+  /* ---------- Init ---------- */
+  loadSavedPhotos();
 })();
