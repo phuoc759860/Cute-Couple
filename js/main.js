@@ -82,29 +82,102 @@
   }
   for (let i = 0; i < 12; i++) setTimeout(spawnHeart, i * 260);
 
-  /* ---------- Gallery filtering ---------- */
+  /* ---------- Gallery filtering + pagination ---------- */
   const galleryGrid = $("#galleryGrid");
+  const paginationEl = $("#pagination");
   const filterBtns = $$(".filter-btn");
+  const PAGE_SIZE = 6;
   let activeCategory = "all";
+  let currentPage = 1;
+  let galleryCards = [];
+
+  function initGalleryCards() {
+    galleryCards = $$(".card", galleryGrid);
+  }
+
+  function filteredCards() {
+    return galleryCards.filter(
+      (c) => activeCategory === "all" || c.dataset.category === activeCategory
+    );
+  }
 
   function visibleCards() {
     return $$(".card", galleryGrid).filter((c) => !c.classList.contains("hide"));
   }
 
-  function applyFilter() {
-    const cards = $$(".card", galleryGrid);
-    cards.forEach((card) => {
-      const match = activeCategory === "all" || card.dataset.category === activeCategory;
-      card.classList.toggle("hide", !match);
-    });
+  function renderPagination(totalPages) {
+    if (totalPages <= 1) {
+      paginationEl.classList.remove("show");
+      paginationEl.innerHTML = "";
+      return;
+    }
+    paginationEl.classList.add("show");
+    let html = `<span class="pagination-info">Page ${currentPage} of ${totalPages}</span>`;
+    html += `<button class="page-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""} aria-label="Previous page">&#8249;</button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      html += `<button class="page-btn ${i === currentPage ? "active" : ""}" data-page="${i}">${i}</button>`;
+    }
+    html += `<button class="page-btn" data-page="${currentPage + 1}" ${currentPage === totalPages ? "disabled" : ""} aria-label="Next page">&#8250;</button>`;
+    paginationEl.innerHTML = html;
   }
+
+  function goToPage(page, totalPages) {
+    currentPage = Math.max(1, Math.min(page, totalPages));
+    renderGallery();
+    const top = $("#gallery").offsetTop - 90;
+    if (window.scrollY > top) window.scrollTo({ top, behavior: "smooth" });
+  }
+
+  function renderGallery() {
+    const filtered = filteredCards();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    galleryCards.forEach((card) => {
+      const catMatch = activeCategory === "all" || card.dataset.category === activeCategory;
+      const pos = filtered.indexOf(card);
+      card.classList.toggle("hide", !(catMatch && pos >= start && pos < end));
+    });
+    renderPagination(totalPages);
+  }
+
+  function addGalleryCard(card, atTop = false) {
+    if (atTop) {
+      galleryGrid.prepend(card);
+      galleryCards.unshift(card);
+    } else {
+      galleryGrid.appendChild(card);
+      galleryCards.push(card);
+    }
+    bindCard(card);
+    bindTilt(card);
+    renderGallery();
+  }
+
+  function removeGalleryCard(cardEl) {
+    const idx = galleryCards.indexOf(cardEl);
+    if (idx > -1) galleryCards.splice(idx, 1);
+    cardEl.remove();
+    renderGallery();
+  }
+
+  paginationEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".page-btn");
+    if (!btn || btn.disabled) return;
+    const page = parseInt(btn.dataset.page, 10);
+    const filtered = filteredCards();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    goToPage(page, totalPages);
+  });
 
   filterBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       filterBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeCategory = btn.dataset.filter;
-      applyFilter();
+      currentPage = 1;
+      renderGallery();
     });
   });
 
@@ -221,7 +294,7 @@
         .from(SUPABASE_BUCKET)
         .remove([record.storage_path]);
       if (storageError) throw storageError;
-      cardEl.remove();
+      removeGalleryCard(cardEl);
       showToast("Photo removed");
     } catch (err) {
       console.error(err);
@@ -236,14 +309,17 @@
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      (data || []).forEach((row) => {
+      const cards = (data || []).map((row) => {
         const url = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(row.storage_path).data.publicUrl;
-        const card = makeSavedCard({ ...row, url });
+        return makeSavedCard({ ...row, url });
+      });
+      cards.forEach((card) => {
         galleryGrid.appendChild(card);
+        galleryCards.push(card);
         bindCard(card);
         bindTilt(card);
       });
-      applyFilter();
+      renderGallery();
     } catch (err) {
       console.warn("Could not load saved photos:", err.message || err);
     }
@@ -259,11 +335,7 @@
           (payload) => {
             const row = payload.new;
             const url = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(row.storage_path).data.publicUrl;
-            const card = makeSavedCard({ ...row, url });
-            galleryGrid.prepend(card);
-            bindCard(card);
-            bindTilt(card);
-            applyFilter();
+            addGalleryCard(makeSavedCard({ ...row, url }), true);
           }
         )
         .on(
@@ -271,7 +343,7 @@
           { event: "DELETE", schema: "public", table: "photos" },
           (payload) => {
             const el = galleryGrid.querySelector(`[data-saved-id="${payload.old.id}"]`);
-            if (el) el.remove();
+            if (el) removeGalleryCard(el);
           }
         )
         .subscribe();
@@ -427,11 +499,7 @@
       if (insertError) throw insertError;
 
       const url = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(storagePath).data.publicUrl;
-      const card = makeSavedCard({ ...data, url });
-      galleryGrid.appendChild(card);
-      bindCard(card);
-      bindTilt(card);
-      applyFilter();
+      addGalleryCard(makeSavedCard({ ...data, url }), true);
       closeModal();
       setTimeout(resetModal, 350);
       showToast("Photo shared with everyone");
@@ -492,6 +560,8 @@
   }
 
   /* ---------- Init ---------- */
+  initGalleryCards();
+  renderGallery();
   loadSavedPhotos();
   subscribeToPhotos();
 })();
