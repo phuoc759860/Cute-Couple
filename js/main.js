@@ -16,6 +16,10 @@
       .replace(/'/g, "&#39;");
   }
 
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
   /* ---------- Preloader ---------- */
   window.addEventListener("load", () => {
     setTimeout(() => $("#preloader").classList.add("hidden"), 400);
@@ -82,27 +86,80 @@
   }
   for (let i = 0; i < 12; i++) setTimeout(spawnHeart, i * 260);
 
-  /* ---------- Gallery filtering + pagination ---------- */
+  /* ---------- Gallery filtering + pagination + search ---------- */
   const galleryGrid = $("#galleryGrid");
   const paginationEl = $("#pagination");
   const filterBtns = $$(".filter-btn");
+  const galleryCountEl = $("#galleryCount");
+  const gallerySearch = $("#gallerySearch");
+  const searchClear = $("#searchClear");
+  const refreshBtn = $("#refreshBtn");
+  const galleryLoading = $("#galleryLoading");
+  const galleryEmpty = $("#galleryEmpty");
+  const galleryEmptyTitle = $("#galleryEmptyTitle");
+  const galleryEmptyText = $("#galleryEmptyText");
   const PAGE_SIZE = 6;
   let activeCategory = "all";
   let currentPage = 1;
+  let searchQuery = "";
   let galleryCards = [];
+  let initialLoadDone = false;
 
   function initGalleryCards() {
     galleryCards = $$(".card", galleryGrid);
   }
 
+  function cardMatchesSearch(card) {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const text = [
+      $(".card-title", card),
+      $(".card-desc", card),
+      $(".card-date", card),
+    ]
+      .filter(Boolean)
+      .map((el) => el.textContent.toLowerCase());
+    return text.some((t) => t.includes(q));
+  }
+
   function filteredCards() {
     return galleryCards.filter(
-      (c) => activeCategory === "all" || c.dataset.category === activeCategory
+      (c) =>
+        (activeCategory === "all" || c.dataset.category === activeCategory) &&
+        cardMatchesSearch(c)
     );
   }
 
   function visibleCards() {
     return $$(".card", galleryGrid).filter((c) => !c.classList.contains("hide"));
+  }
+
+  function updateGalleryCount(filteredLength) {
+    const total = galleryCards.length;
+    if (total === 0) {
+      galleryCountEl.innerHTML = "0 memories";
+    } else if (filteredLength === total) {
+      galleryCountEl.innerHTML = `<strong>${total}</strong> ${total === 1 ? "memory" : "memories"}`;
+    } else {
+      galleryCountEl.innerHTML = `Showing <strong>${filteredLength}</strong> of <strong>${total}</strong> memories`;
+    }
+  }
+
+  function updateEmptyState(filteredLength) {
+    const noPhotos = galleryCards.length === 0;
+    const noResults = !noPhotos && filteredLength === 0;
+    if (noPhotos) {
+      galleryEmptyTitle.textContent = "No memories yet";
+      galleryEmptyText.textContent = "Be the first to add a photo to our shared album.";
+      $("#emptyAddBtn").style.display = "";
+    } else if (noResults) {
+      galleryEmptyTitle.textContent = "No photos found";
+      galleryEmptyText.textContent = searchQuery
+        ? `Nothing matches "${searchQuery}". Try a different search or category.`
+        : "No photos match this category yet.";
+      $("#emptyAddBtn").style.display = "none";
+    }
+    galleryEmpty.classList.toggle("show", noPhotos || noResults);
   }
 
   function renderPagination(totalPages) {
@@ -137,8 +194,11 @@
     galleryCards.forEach((card) => {
       const catMatch = activeCategory === "all" || card.dataset.category === activeCategory;
       const pos = filtered.indexOf(card);
-      card.classList.toggle("hide", !(catMatch && pos >= start && pos < end));
+      card.classList.toggle("hide", !(catMatch && cardMatchesSearch(card) && pos >= start && pos < end));
     });
+    galleryLoading.classList.toggle("show", !initialLoadDone);
+    updateGalleryCount(filtered.length);
+    updateEmptyState(filtered.length);
     renderPagination(totalPages);
   }
 
@@ -181,6 +241,56 @@
     });
   });
 
+  gallerySearch.addEventListener("input", () => {
+    searchQuery = gallerySearch.value.trim();
+    searchClear.classList.toggle("show", !!searchQuery);
+    currentPage = 1;
+    renderGallery();
+  });
+  searchClear.addEventListener("click", () => {
+    gallerySearch.value = "";
+    searchQuery = "";
+    searchClear.classList.remove("show");
+    currentPage = 1;
+    renderGallery();
+    gallerySearch.focus();
+  });
+
+  async function refreshPhotos() {
+    if (refreshBtn.classList.contains("spinning")) return;
+    refreshBtn.classList.add("spinning");
+    try {
+      const { data, error } = await supabase
+        .from("photos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = data || [];
+      const serverIds = new Set(rows.map((r) => r.id));
+      galleryCards.slice().forEach((card) => {
+        if (card.dataset.savedId && !serverIds.has(card.dataset.savedId)) {
+          removeGalleryCard(card);
+        }
+      });
+      const localIds = new Set(galleryCards.map((c) => c.dataset.savedId).filter(Boolean));
+      rows
+        .slice()
+        .reverse()
+        .forEach((row) => {
+          if (localIds.has(row.id)) return;
+          const url = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(row.storage_path).data.publicUrl;
+          addGalleryCard(makeSavedCard({ ...row, url }), true);
+        });
+      showToast("Gallery refreshed");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not refresh the gallery");
+    } finally {
+      refreshBtn.classList.remove("spinning");
+    }
+  }
+  refreshBtn.addEventListener("click", refreshPhotos);
+
   /* ---------- Tilt effect ---------- */
   function bindTilt(card) {
     if (!window.matchMedia("(hover: hover)").matches) return;
@@ -201,6 +311,8 @@
   const lightbox = $("#lightbox");
   const lightboxImg = $("#lightboxImg");
   const lightboxCaption = $("#lightboxCaption");
+  const lightboxCounter = $("#lightboxCounter");
+  const lightboxDownload = $("#lightboxDownload");
   const lightboxClose = $("#lightboxClose");
   const lightboxPrev = $("#lightboxPrev");
   const lightboxNext = $("#lightboxNext");
@@ -217,6 +329,7 @@
     lightboxImg.src = img.src;
     lightboxImg.alt = img.alt;
     lightboxCaption.textContent = desc ? `${title} — ${desc}` : title;
+    lightboxCounter.textContent = `${clamped + 1} / ${visible.length}`;
     lightbox.classList.add("open");
     lightbox.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -241,6 +354,7 @@
   lightboxClose.addEventListener("click", closeLightbox);
   lightboxPrev.addEventListener("click", () => openLightbox(lightboxIndex - 1));
   lightboxNext.addEventListener("click", () => openLightbox(lightboxIndex + 1));
+  lightboxDownload.addEventListener("click", downloadCurrentPhoto);
   lightbox.addEventListener("click", (e) => {
     if (e.target === lightbox) closeLightbox();
   });
@@ -250,6 +364,33 @@
     if (e.key === "ArrowLeft") openLightbox(lightboxIndex - 1);
     if (e.key === "ArrowRight") openLightbox(lightboxIndex + 1);
   });
+
+  async function downloadCurrentPhoto() {
+    const src = lightboxImg.src;
+    if (!src) return;
+    try {
+      const resp = await fetch(src);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const name =
+        (lightboxCaption.textContent || "our-memory")
+          .replace(/[^\w\- ]+/g, "")
+          .trim()
+          .replace(/\s+/g, "-")
+          .slice(0, 40) || "our-memory";
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${name}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("Photo downloaded");
+    } catch (err) {
+      console.error(err);
+      window.open(src, "_blank");
+    }
+  }
 
   /* ---------- Saved photos (Supabase) ---------- */
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -319,9 +460,11 @@
         bindCard(card);
         bindTilt(card);
       });
-      renderGallery();
     } catch (err) {
       console.warn("Could not load saved photos:", err.message || err);
+    } finally {
+      initialLoadDone = true;
+      renderGallery();
     }
   }
 
@@ -354,16 +497,17 @@
 
   /* ---------- Add Photo flow ---------- */
   const addPhotoBtn = $("#addPhotoBtn");
+  const emptyAddBtn = $("#emptyAddBtn");
   const photoInput = $("#photoInput");
   const photoModal = $("#photoModal");
   const photoModalClose = $("#photoModalClose");
   const photoCancel = $("#photoCancel");
   const photoSave = $("#photoSave");
-  const photoPreviewImg = $("#photoPreviewImg");
-  const photoPreview = $("#photoPreview");
   const photoTitle = $("#photoTitle");
   const photoDesc = $("#photoDesc");
   const photoCategory = $("#photoCategory");
+  const uploadProgress = $("#uploadProgress");
+  const uploadProgressText = $("#uploadProgressText");
   let pendingDataUrl = null;
   let pendingFile = null;
 
@@ -386,8 +530,22 @@
     photoTitle.value = "";
     photoDesc.value = "";
     photoCategory.value = "everyday";
-    photoPreviewImg.removeAttribute("src");
-    photoPreview.innerHTML = '<span class="preview-empty">No image selected yet</span>';
+    editor.baseImage = null;
+    editor.frame = "none";
+    editor.stickers = [];
+    editor.selected = -1;
+    editorCanvas.width = 0;
+    editorCanvas.height = 0;
+    editorCanvas.style.width = "";
+    editorCanvas.style.height = "";
+    stickerLayer.innerHTML = "";
+    frameLayer.className = "frame-layer";
+    editorPanel.hidden = true;
+    editorHint.style.display = "flex";
+    stickerSizeEl.value = 15;
+    removeStickerBtn.disabled = true;
+    clearDecorBtn.disabled = true;
+    updateFrameOptions();
   }
 
   function resizeImage(file, maxDim = 1600) {
@@ -402,7 +560,10 @@
           const canvas = document.createElement("canvas");
           canvas.width = w;
           canvas.height = h;
-          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
           canvas.toBlob(
             (blob) => {
               if (blob) {
@@ -425,6 +586,7 @@
   }
 
   addPhotoBtn.addEventListener("click", () => photoInput.click());
+  emptyAddBtn.addEventListener("click", () => photoInput.click());
   photoInput.addEventListener("change", () => {
     const file = photoInput.files && photoInput.files[0];
     if (!file) return;
@@ -436,13 +598,16 @@
     const reader = new FileReader();
     reader.onload = () => {
       pendingDataUrl = reader.result;
-      photoPreviewImg.src = pendingDataUrl;
-      photoPreview.innerHTML = "";
-      photoPreview.appendChild(photoPreviewImg);
-      if (!photoTitle.value) {
-        photoTitle.value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
-      }
-      openModal();
+      const img = new Image();
+      img.onload = () => {
+        initEditor(img);
+        if (!photoTitle.value) {
+          photoTitle.value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+        }
+        openModal();
+      };
+      img.onerror = () => showToast("Could not read the image");
+      img.src = pendingDataUrl;
     };
     reader.readAsDataURL(file);
   });
@@ -476,15 +641,19 @@
     }
     photoSave.disabled = true;
     photoSave.textContent = "Saving...";
+    uploadProgress.classList.add("show", "indeterminate");
+    uploadProgressText.textContent = "Uploading your photo...";
     try {
-      const resized = await resizeImage(pendingFile);
-      const ext = resized.type === "image/jpeg" ? "jpg" : "png";
+      const image = editorHasDecorations() ? await compositeEditedImage() : await resizeImage(pendingFile);
+      const ext = image.type === "image/jpeg" ? "jpg" : "png";
       const storagePath = `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from(SUPABASE_BUCKET)
-        .upload(storagePath, resized, { contentType: resized.type });
+        .upload(storagePath, image, { contentType: image.type });
       if (uploadError) throw uploadError;
+
+      uploadProgressText.textContent = "Saving details...";
 
       const { data, error: insertError } = await supabase
         .from("photos")
@@ -509,6 +678,393 @@
     } finally {
       photoSave.disabled = false;
       photoSave.textContent = "Save Photo";
+      uploadProgress.classList.remove("show", "indeterminate");
+    }
+  });
+
+  /* ---------- Photo editor ---------- */
+  const editorStage = $("#editorStage");
+  const editorCanvas = $("#editorCanvas");
+  const stickerLayer = $("#stickerLayer");
+  const frameLayer = $("#frameLayer");
+  const editorHint = $("#editorHint");
+  const editorPanel = $("#editorPanel");
+  const editorTabs = $$(".editor-tab");
+  const editorSubpanels = $$(".editor-subpanel");
+  const frameOptions = $("#frameOptions");
+  const stickerGrid = $("#stickerGrid");
+  const stickerSizeEl = $("#stickerSize");
+  const removeStickerBtn = $("#removeStickerBtn");
+  const textInput = $("#textInput");
+  const textFont = $("#textFont");
+  const textColor = $("#textColor");
+  const addTextBtn = $("#addTextBtn");
+  const clearDecorBtn = $("#clearDecorBtn");
+
+  const EMOJI_FONT =
+    '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+
+  const editor = {
+    baseImage: null,
+    frame: "none",
+    stickers: [],
+    selected: -1,
+  };
+
+  function editorHasDecorations() {
+    return editor.frame !== "none" || editor.stickers.length > 0;
+  }
+
+  function getEditorCtx() {
+    return editorCanvas.getContext("2d");
+  }
+
+  function fitEditorToStage() {
+    const base = editor.baseImage;
+    if (!base) return;
+    const stageBox = editorStage.getBoundingClientRect();
+    const fit = Math.min(1, (stageBox.width - 24) / base.w, (stageBox.height - 24) / base.h);
+    const dw = Math.round(base.w * fit);
+    const dh = Math.round(base.h * fit);
+    editorCanvas.style.width = `${dw}px`;
+    editorCanvas.style.height = `${dh}px`;
+    stickerLayer.style.width = `${dw}px`;
+    stickerLayer.style.height = `${dh}px`;
+    frameLayer.style.width = `${dw}px`;
+    frameLayer.style.height = `${dh}px`;
+  }
+
+  function initEditor(img) {
+    const maxDim = 1600;
+    const natW = img.naturalWidth || img.width;
+    const natH = img.naturalHeight || img.height;
+    const scale = Math.min(1, maxDim / Math.max(natW, natH));
+    const w = Math.round(natW * scale);
+    const h = Math.round(natH * scale);
+    editor.baseImage = { img, w, h };
+    editor.frame = "none";
+    editor.stickers = [];
+    editor.selected = -1;
+
+    editorCanvas.width = w;
+    editorCanvas.height = h;
+    fitEditorToStage();
+    getEditorCtx().drawImage(img, 0, 0, w, h);
+    editorHint.style.display = "none";
+    editorPanel.hidden = false;
+    stickerSizeEl.value = 15;
+    removeStickerBtn.disabled = true;
+    clearDecorBtn.disabled = true;
+    updateFrameOptions();
+    renderFrameOverlay();
+    renderStickerOverlays();
+  }
+
+  function renderStickerOverlays() {
+    stickerLayer.innerHTML = "";
+    const layerWidth = stickerLayer.clientWidth || 1;
+    editor.stickers.forEach((s, i) => {
+      const el = document.createElement("span");
+      el.className = "sticker-el" + (i === editor.selected ? " selected" : "");
+      el.dataset.index = i;
+      el.textContent = s.content;
+      if (s.type === "text") {
+        el.style.fontFamily = s.font;
+        el.style.color = s.color;
+      }
+      el.style.fontSize = `${Math.max(8, Math.round(s.size * layerWidth))}px`;
+      el.style.left = `${(s.x * 100).toFixed(3)}%`;
+      el.style.top = `${(s.y * 100).toFixed(3)}%`;
+      el.addEventListener("pointerdown", onStickerPointerDown);
+      el.addEventListener("dblclick", onStickerDblClick);
+      stickerLayer.appendChild(el);
+    });
+  }
+
+  let dragState = null;
+  function onStickerPointerDown(e) {
+    e.preventDefault();
+    const index = parseInt(e.currentTarget.dataset.index, 10);
+    selectSticker(index);
+    if (dragState) return;
+    const s = editor.stickers[index];
+    if (!s) return;
+    dragState = {
+      index,
+      startX: e.clientX,
+      startY: e.clientY,
+      sX: s.x,
+      sY: s.y,
+    };
+    try {
+      stickerLayer.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    e.currentTarget.classList.add("dragging");
+  }
+  function onStickerPointerMove(e) {
+    if (!dragState) return;
+    const rect = stickerLayer.getBoundingClientRect();
+    const s = editor.stickers[dragState.index];
+    if (!s) return;
+    s.x = clamp(dragState.sX + (e.clientX - dragState.startX) / rect.width, 0, 1);
+    s.y = clamp(dragState.sY + (e.clientY - dragState.startY) / rect.height, 0, 1);
+    const el = stickerLayer.children[dragState.index];
+    if (el) {
+      el.style.left = `${(s.x * 100).toFixed(3)}%`;
+      el.style.top = `${(s.y * 100).toFixed(3)}%`;
+    }
+  }
+  function onStickerPointerUp(e) {
+    if (!dragState) return;
+    try {
+      stickerLayer.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    const el = stickerLayer.children[dragState.index];
+    if (el) el.classList.remove("dragging");
+    dragState = null;
+  }
+  stickerLayer.addEventListener("pointermove", onStickerPointerMove);
+  stickerLayer.addEventListener("pointerup", onStickerPointerUp);
+  stickerLayer.addEventListener("pointercancel", onStickerPointerUp);
+
+  function onStickerDblClick(e) {
+    removeSticker(parseInt(e.currentTarget.dataset.index, 10));
+  }
+
+  function selectSticker(index) {
+    editor.selected = index;
+    $$(".sticker-el", stickerLayer).forEach((el) => {
+      el.classList.toggle("selected", parseInt(el.dataset.index, 10) === index);
+    });
+    const s = editor.stickers[index];
+    if (s) {
+      stickerSizeEl.value = Math.round(s.size * 100);
+      removeStickerBtn.disabled = false;
+    }
+  }
+
+  function removeSticker(index) {
+    if (index < 0) return;
+    editor.stickers.splice(index, 1);
+    if (editor.selected >= editor.stickers.length) editor.selected = editor.stickers.length - 1;
+    renderStickerOverlays();
+    selectSticker(editor.selected);
+    updateEditorFooter();
+  }
+
+  function addSticker(s) {
+    editor.stickers.push(s);
+    editor.selected = editor.stickers.length - 1;
+    renderStickerOverlays();
+    selectSticker(editor.selected);
+    updateEditorFooter();
+  }
+
+  function updateEditorFooter() {
+    removeStickerBtn.disabled = editor.selected < 0;
+    clearDecorBtn.disabled = !editorHasDecorations();
+  }
+
+  stickerGrid.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-sticker]");
+    if (!btn) return;
+    addSticker({ type: "emoji", content: btn.dataset.sticker, x: 0.5, y: 0.5, size: 0.16 });
+  });
+
+  stickerSizeEl.addEventListener("input", () => {
+    const s = editor.stickers[editor.selected];
+    if (!s) return;
+    s.size = parseInt(stickerSizeEl.value, 10) / 100;
+    renderStickerOverlays();
+  });
+
+  removeStickerBtn.addEventListener("click", () => {
+    removeSticker(editor.selected);
+  });
+
+  addTextBtn.addEventListener("click", () => {
+    const value = textInput.value.trim();
+    if (!value) {
+      showToast("Type some text first");
+      return;
+    }
+    addSticker({ type: "text", content: value, font: textFont.value, color: textColor.value, x: 0.5, y: 0.5, size: 0.07 });
+    textInput.value = "";
+  });
+
+  clearDecorBtn.addEventListener("click", () => {
+    editor.stickers = [];
+    editor.selected = -1;
+    renderStickerOverlays();
+    updateEditorFooter();
+    showToast("Decorations cleared");
+  });
+
+  editorTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      editorTabs.forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      editorSubpanels.forEach((p) => p.classList.toggle("show", p.dataset.subpanel === tab.dataset.panel));
+    });
+  });
+
+  frameOptions.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-frame]");
+    if (!btn) return;
+    editor.frame = btn.dataset.frame;
+    updateFrameOptions();
+    renderFrameOverlay();
+    updateEditorFooter();
+  });
+
+  function updateFrameOptions() {
+    $$(".frame-opt", frameOptions).forEach((b) => {
+      b.classList.toggle("active", b.dataset.frame === editor.frame);
+    });
+  }
+
+  function renderFrameOverlay() {
+    frameLayer.className = "frame-layer";
+    frameLayer.innerHTML = "";
+    if (editor.frame === "none") return;
+    frameLayer.classList.add(`frame-${editor.frame}`);
+    if (editor.frame === "hearts") {
+      const heart =
+        '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>';
+      frameLayer.innerHTML =
+        `<span class="f-h f-h-tl">${heart}</span>` +
+        `<span class="f-h f-h-tr">${heart}</span>` +
+        `<span class="f-h f-h-bl">${heart}</span>` +
+        `<span class="f-h f-h-br">${heart}</span>`;
+    }
+  }
+
+  function compositeEditedImage() {
+    return new Promise((resolve, reject) => {
+      const base = editor.baseImage;
+      if (!base) {
+        reject(new Error("No image to render"));
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = base.w;
+      canvas.height = base.h;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, base.w, base.h);
+      ctx.drawImage(base.img, 0, 0, base.w, base.h);
+
+      editor.stickers.forEach((s) => {
+        const px = Math.max(6, s.size * base.w);
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        if (s.type === "text") {
+          ctx.font = `${px}px ${s.font}`;
+          ctx.fillStyle = s.color;
+          ctx.shadowColor = "rgba(0,0,0,0.35)";
+          ctx.shadowBlur = Math.max(2, px * 0.12);
+          ctx.shadowOffsetY = Math.max(1, px * 0.05);
+        } else {
+          ctx.font = `${px}px ${EMOJI_FONT}`;
+        }
+        ctx.fillText(s.content, s.x * base.w, s.y * base.h);
+        ctx.restore();
+      });
+
+      drawFrame(ctx, base.w, base.h, editor.frame);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(new File([blob], "memory.jpg", { type: "image/jpeg" }));
+          } else {
+            reject(new Error("Could not render your edits"));
+          }
+        },
+        "image/jpeg",
+        0.92
+      );
+    });
+  }
+
+  function drawFrame(ctx, w, h, frame) {
+    if (!frame || frame === "none") return;
+    const pad = Math.max(14, Math.round(w * 0.025));
+    if (frame === "hearts") {
+      const hs = Math.max(24, Math.round(w * 0.09));
+      const off = pad * 1.1;
+      ctx.save();
+      drawHeart(ctx, off, off, hs);
+      drawHeart(ctx, w - off, off, hs);
+      drawHeart(ctx, off, h - off, hs);
+      drawHeart(ctx, w - off, h - off, hs);
+      ctx.restore();
+    } else if (frame === "border") {
+      ctx.save();
+      ctx.strokeStyle = "#e0527a";
+      ctx.lineWidth = Math.max(3, Math.round(w * 0.008));
+      ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
+      ctx.restore();
+    } else if (frame === "gradient") {
+      ctx.save();
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, "#ffd1de");
+      grad.addColorStop(0.5, "#e0527a");
+      grad.addColorStop(1, "#b98a5e");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = Math.max(8, Math.round(w * 0.03));
+      ctx.strokeRect(pad / 2, pad / 2, w - pad, h - pad);
+      ctx.restore();
+    } else if (frame === "dots") {
+      ctx.save();
+      ctx.fillStyle = "#e0527a";
+      const d = Math.max(6, Math.round(w * 0.02));
+      const gap = Math.max(20, Math.round(w * 0.045));
+      for (let x = pad; x <= w - pad; x += gap) {
+        ctx.beginPath();
+        ctx.arc(x, pad, d / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, h - pad, d / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let y = pad + gap; y <= h - pad; y += gap) {
+        ctx.beginPath();
+        ctx.arc(pad, y, d / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(w - pad, y, d / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawHeart(ctx, x, y, size) {
+    const s = size / 24;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.fillStyle = "#e0527a";
+    ctx.beginPath();
+    ctx.moveTo(12, 21);
+    ctx.bezierCurveTo(12, 21, 4.5, 16.1, 2, 11.5);
+    ctx.bezierCurveTo(0.5, 8.5, 2, 4.5, 6, 3.5);
+    ctx.bezierCurveTo(8.4, 2.9, 10.5, 3.8, 12, 5.5);
+    ctx.bezierCurveTo(13.5, 3.8, 15.6, 2.9, 18, 3.5);
+    ctx.bezierCurveTo(22, 4.5, 23.5, 8.5, 22, 11.5);
+    ctx.bezierCurveTo(19.5, 16.1, 12, 21, 12, 21);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  window.addEventListener("resize", () => {
+    if (editor.baseImage && $("#photoModal").classList.contains("open")) {
+      fitEditorToStage();
+      renderFrameOverlay();
+      renderStickerOverlays();
     }
   });
 
