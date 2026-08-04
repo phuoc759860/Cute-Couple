@@ -1,0 +1,17 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cfd9ee"/>
+      <stop offset="100%" stop-color="#8fa7d6"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <g fill="rgba(255,255,255,0.55)">
+  <ellipse cx="220" cy="160" rx="120" ry="46"/>
+  <ellipse cx="300" cy="140" rx="110" ry="42"/>
+  <ellipse cx="600" cy="120" rx="130" ry="48"/>
+  <ellipse cx="680" cy="100" rx="100" ry="38"/>
+</g>
+  <g fill="rgba(255,255,255,0.75)"><g transform="translate(340,400) scale(1.4)"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></g><g transform="translate(430,390) scale(1)" fill="rgba(255,209,222,0.95)"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></g></g>
+  <text x="400" y="560" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="30" fill="rgba(255,255,255,0.9)">Replace with your photo</text>
+</svg>

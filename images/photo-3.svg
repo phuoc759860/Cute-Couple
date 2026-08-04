@@ -1,0 +1,19 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e8b4c8"/>
+      <stop offset="100%" stop-color="#a0496c"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <g stroke="#ffd1de" stroke-width="3" opacity="0.8">
+  <path d="M0 40 Q100 90 200 40 T400 40 T600 40 T800 40"/>
+  <path d="M0 80 Q100 130 200 80 T400 80 T600 80 T800 80"/>
+  <path d="M0 120 Q100 170 200 120 T400 120 T600 120 T800 120"/>
+</g>
+<g fill="rgba(255,255,255,0.35)">
+  <ellipse cx="400" cy="470" rx="220" ry="40"/>
+</g>
+  <g fill="rgba(255,255,255,0.75)"><g transform="translate(340,400) scale(1.4)"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></g><g transform="translate(430,390) scale(1)" fill="rgba(255,209,222,0.95)"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></g></g>
+  <text x="400" y="560" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="30" fill="rgba(255,255,255,0.9)">Replace with your photo</text>
+</svg>

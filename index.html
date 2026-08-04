@@ -1,0 +1,285 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Our love story â€” a beautiful collection of our favorite memories together." />
+  <title>Our Love Album â€” Forever Together</title>
+  <link rel="icon" href="images/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div class="preloader" id="preloader">
+    <div class="preloader-heart">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+    </div>
+    <p class="preloader-text">Loading our memories...</p>
+  </div>
+
+  <!-- Navigation -->
+  <header class="navbar" id="navbar">
+    <nav class="nav-container">
+      <a href="#home" class="brand">
+        <svg class="brand-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+        <span class="brand-text">Aya &amp; Leo</span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#home" class="active">Home</a></li>
+        <li><a href="#gallery">Gallery</a></li>
+        <li><a href="#story">Our Story</a></li>
+        <li><a href="#countdown">Countdown</a></li>
+        <li><a href="#messages">Love Notes</a></li>
+      </ul>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero" id="home">
+    <div class="hero-bg" aria-hidden="true">
+      <span class="blob blob-1"></span>
+      <span class="blob blob-2"></span>
+      <span class="blob blob-3"></span>
+      <div class="floating-hearts" id="floatingHearts"></div>
+    </div>
+    <div class="hero-content">
+      <p class="hero-eyebrow">â€” Our Love Story â€”</p>
+      <h1 class="hero-title">Every Picture Holds a Piece of Us</h1>
+      <p class="hero-subtitle">
+        A little corner of the internet where our sweetest memories live forever.
+        From our first hello to every hello after.
+      </p>
+      <div class="hero-actions">
+        <a href="#gallery" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+          View Our Album
+        </a>
+        <a href="#story" class="btn btn-ghost">Our Story</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><strong>2</strong><span>Years Together</span></div>
+        <div class="stat"><strong>14</strong><span>Countries</span></div>
+        <div class="stat"><strong>âˆž</strong><span>Love</span></div>
+      </div>
+    </div>
+    <a href="#gallery" class="scroll-hint" aria-label="Scroll down">
+      <span></span>
+    </a>
+  </section>
+
+  <!-- Gallery -->
+  <section class="gallery" id="gallery">
+    <div class="section-head">
+      <p class="section-eyebrow">Gallery</p>
+      <h2 class="section-title">Our Favorite <span class="accent">Memories</span></h2>
+      <p class="section-sub">A curated collection of the moments we never want to forget.</p>
+    </div>
+
+    <div class="gallery-filters" id="galleryFilters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="dates">Dates</button>
+      <button class="filter-btn" data-filter="travel">Travel</button>
+      <button class="filter-btn" data-filter="celebrations">Celebrations</button>
+      <button class="filter-btn" data-filter="everyday">Everyday</button>
+    </div>
+
+    <div class="gallery-grid" id="galleryGrid">
+      <figure class="card" data-category="travel" data-tilt>
+        <img src="images/photo-1.svg" alt="Beach sunset walk" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">July 2025</p>
+          <h3 class="card-title">Golden Hour Walks</h3>
+          <p class="card-desc">Sunset, sand, and your hand in mine.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="dates" data-tilt>
+        <img src="images/photo-2.svg" alt="Coffee date" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">March 2026</p>
+          <h3 class="card-title">Coffee &amp; Conversations</h3>
+          <p class="card-desc">Our favorite little cafe downtown.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="celebrations" data-tilt>
+        <img src="images/photo-3.svg" alt="Anniversary dinner" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">February 2026</p>
+          <h3 class="card-title">Two Years of Us</h3>
+          <p class="card-desc">Anniversary dinner under fairy lights.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="everyday" data-tilt>
+        <img src="images/photo-4.svg" alt="Lazy Sunday" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">April 2026</p>
+          <h3 class="card-title">Lazy Sundays</h3>
+          <p class="card-desc">Blankets, movies, and zero plans.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="travel" data-tilt>
+        <img src="images/photo-5.svg" alt="Mountain trip" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">October 2025</p>
+          <h3 class="card-title">Up in the Clouds</h3>
+          <p class="card-desc">Mountain air and quiet mornings.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="celebrations" data-tilt>
+        <img src="images/photo-6.svg" alt="Birthday surprise" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">January 2026</p>
+          <h3 class="card-title">Birthday Surprise</h3>
+          <p class="card-desc">Candles, cake, and your smile.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="everyday" data-tilt>
+        <img src="images/photo-7.svg" alt="Rainy day walk" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">June 2025</p>
+          <h3 class="card-title">Rainy Day Puddles</h3>
+          <p class="card-desc">One umbrella, two hearts.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="dates" data-tilt>
+        <img src="images/photo-8.svg" alt="Stargazing" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">August 2025</p>
+          <h3 class="card-title">Stargazing</h3>
+          <p class="card-desc">Counting stars, losing count.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="card" data-category="travel" data-tilt>
+        <img src="images/photo-9.svg" alt="City lights" loading="lazy" />
+        <figcaption class="card-overlay">
+          <p class="card-date">December 2025</p>
+          <h3 class="card-title">City Lights</h3>
+          <p class="card-desc">Exploring the city at night.</p>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Story / Timeline -->
+  <section class="story" id="story">
+    <div class="section-head">
+      <p class="section-eyebrow">Our Story</p>
+      <h2 class="section-title">How It All <span class="accent">Began</span></h2>
+    </div>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-card reveal">
+          <p class="timeline-date">April 14, 2024</p>
+          <h3>The First Hello</h3>
+          <p>A shared playlist and a nervous "hi" that changed everything.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-card reveal">
+          <p class="timeline-date">June 1, 2024</p>
+          <h3>The First Date</h3>
+          <p>Two coffees, four hours, and zero desire to leave.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-card reveal">
+          <p class="timeline-date">February 14, 2025</p>
+          <h3>Officially Us</h3>
+          <p>The day we promised each other "always" out loud.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-card reveal">
+          <p class="timeline-date">Today</p>
+          <h3>Still Falling</h3>
+          <p>Every single day, we fall for each other all over again.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Countdown -->
+  <section class="countdown" id="countdown">
+    <div class="countdown-bg" aria-hidden="true"></div>
+    <div class="section-head light">
+      <p class="section-eyebrow">Countdown</p>
+      <h2 class="section-title">Until Our <span class="accent">Next Adventure</span></h2>
+    </div>
+    <div class="countdown-grid" id="countdownGrid">
+      <div class="time-box"><span class="time-value" id="cdDays">00</span><span class="time-label">Days</span></div>
+      <div class="time-box"><span class="time-value" id="cdHours">00</span><span class="time-label">Hours</span></div>
+      <div class="time-box"><span class="time-value" id="cdMinutes">00</span><span class="time-label">Minutes</span></div>
+      <div class="time-box"><span class="time-value" id="cdSeconds">00</span><span class="time-label">Seconds</span></div>
+    </div>
+  </section>
+
+  <!-- Love Notes / Messages -->
+  <section class="messages" id="messages">
+    <div class="section-head">
+      <p class="section-eyebrow">Love Notes</p>
+      <h2 class="section-title">Little Things I <span class="accent">Never Said</span></h2>
+    </div>
+    <div class="notes-grid">
+      <blockquote class="note-card reveal">
+        <span class="note-quote">â€œ</span>
+        <p>You're my favorite hello and my hardest goodbye.</p>
+        <cite>â€” Always yours</cite>
+      </blockquote>
+      <blockquote class="note-card reveal">
+        <span class="note-quote">â€œ</span>
+        <p>I loved you yesterday, I love you still, I always have, I always will.</p>
+        <cite>â€” Forever</cite>
+      </blockquote>
+      <blockquote class="note-card reveal">
+        <span class="note-quote">â€œ</span>
+        <p>In a sea of people, my eyes will always look for you.</p>
+        <cite>â€” Patiently yours</cite>
+      </blockquote>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-heart">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+    </div>
+    <p class="footer-text">Made with <span class="footer-love">â™¥</span> for Aya, by Leo</p>
+    <p class="footer-year">Â© 2026 â€” Every day with you is a gift.</p>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close">&times;</button>
+    <button class="lightbox-prev" id="lightboxPrev" aria-label="Previous">&#8249;</button>
+    <figure class="lightbox-figure">
+      <img id="lightboxImg" src="" alt="" />
+      <figcaption id="lightboxCaption"></figcaption>
+    </figure>
+    <button class="lightbox-next" id="lightboxNext" aria-label="Next">&#8250;</button>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,17 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f3e3c9"/>
+      <stop offset="100%" stop-color="#d9a066"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <rect x="120" y="300" width="200" height="250" rx="8" fill="rgba(255,255,255,0.5)"/>
+<rect x="480" y="260" width="220" height="290" rx="8" fill="rgba(255,255,255,0.5)"/>
+<rect x="140" y="330" width="160" height="16" rx="8" fill="rgba(217,160,102,0.6)"/>
+<rect x="500" y="290" width="180" height="16" rx="8" fill="rgba(217,160,102,0.6)"/>
+<circle cx="640" cy="180" r="46" fill="rgba(255,255,255,0.6)"/>
+<path d="M600 180 a46 46 0 0 1 46 -46" stroke="rgba(120,80,40,0.5)" stroke-width="6" fill="none"/>
+  <g fill="rgba(255,255,255,0.75)"><g transform="translate(340,400) scale(1.4)"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></g><g transform="translate(430,390) scale(1)" fill="rgba(255,209,222,0.95)"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></g></g>
+  <text x="400" y="560" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="30" fill="rgba(255,255,255,0.9)">Replace with your photo</text>
+</svg>
