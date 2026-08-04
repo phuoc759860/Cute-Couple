@@ -178,46 +178,8 @@
     if (e.key === "ArrowRight") openLightbox(lightboxIndex + 1);
   });
 
-  /* ---------- Saved photos (IndexedDB) ---------- */
-  const DB_NAME = "couple-album";
-  const DB_VERSION = 1;
-  const STORE = "photos";
-  let dbPromise = null;
-
-  function openDB() {
-    if (dbPromise) return dbPromise;
-    dbPromise = new Promise((resolve, reject) => {
-      if (!("indexedDB" in window)) {
-        reject(new Error("IndexedDB not supported"));
-        return;
-      }
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE, { keyPath: "id" });
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-    return dbPromise;
-  }
-
-  async function idbRequest(mode, fn) {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, mode);
-      const store = tx.objectStore(STORE);
-      const req = fn(store);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  const idbGetAll = () => idbRequest("readonly", (s) => s.getAll());
-  const idbPut = (record) => idbRequest("readwrite", (s) => s.put(record));
-  const idbDelete = (id) => idbRequest("readwrite", (s) => s.delete(id));
+  /* ---------- Saved photos (Supabase) ---------- */
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const DELETE_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>';
@@ -227,12 +189,15 @@
     fig.className = "card";
     fig.dataset.category = record.category || "everyday";
     fig.dataset.savedId = record.id;
+    const dateLabel = record.dateLabel
+      ? record.dateLabel
+      : new Date(record.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" });
     fig.innerHTML = `
-      <img src="${record.dataUrl}" alt="${escapeHtml(record.title)}" />
+      <img src="${record.url}" alt="${escapeHtml(record.title)}" loading="lazy" />
       <figcaption class="card-overlay">
-        <p class="card-date">${escapeHtml(record.dateLabel || "Added")}</p>
+        <p class="card-date">${escapeHtml(dateLabel)}</p>
         <h3 class="card-title">${escapeHtml(record.title || "Our Memory")}</h3>
-        <p class="card-desc">${escapeHtml(record.desc || "")}</p>
+        <p class="card-desc">${escapeHtml(record.description || "")}</p>
       </figcaption>
       <button class="card-delete" type="button" aria-label="Delete photo">${DELETE_ICON}</button>
     `;
@@ -240,28 +205,78 @@
     del.addEventListener("click", (e) => {
       e.stopPropagation();
       if (!window.confirm("Remove this photo from the album?")) return;
-      idbDelete(record.id).then(() => {
-        fig.remove();
-        showToast("Photo removed");
-      });
+      deletePhoto(record, fig);
     });
     return fig;
   }
 
+  async function deletePhoto(record, cardEl) {
+    try {
+      const { error: delError } = await supabase
+        .from("photos")
+        .delete()
+        .eq("id", record.id);
+      if (delError) throw delError;
+      const { error: storageError } = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .remove([record.storage_path]);
+      if (storageError) throw storageError;
+      cardEl.remove();
+      showToast("Photo removed");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not remove the photo");
+    }
+  }
+
   async function loadSavedPhotos() {
     try {
-      const records = await idbGetAll();
-      records
-        .sort((a, b) => b.addedAt - a.addedAt)
-        .forEach((r) => {
-          const card = makeSavedCard(r);
-          galleryGrid.appendChild(card);
-          bindCard(card);
-          bindTilt(card);
-        });
+      const { data, error } = await supabase
+        .from("photos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      (data || []).forEach((row) => {
+        const url = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(row.storage_path).data.publicUrl;
+        const card = makeSavedCard({ ...row, url });
+        galleryGrid.appendChild(card);
+        bindCard(card);
+        bindTilt(card);
+      });
       applyFilter();
     } catch (err) {
-      console.warn("Could not load saved photos:", err);
+      console.warn("Could not load saved photos:", err.message || err);
+    }
+  }
+
+  function subscribeToPhotos() {
+    try {
+      supabase
+        .channel("photos-live")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "photos" },
+          (payload) => {
+            const row = payload.new;
+            const url = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(row.storage_path).data.publicUrl;
+            const card = makeSavedCard({ ...row, url });
+            galleryGrid.prepend(card);
+            bindCard(card);
+            bindTilt(card);
+            applyFilter();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "photos" },
+          (payload) => {
+            const el = galleryGrid.querySelector(`[data-saved-id="${payload.old.id}"]`);
+            if (el) el.remove();
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("Realtime not available:", err.message || err);
     }
   }
 
@@ -278,6 +293,7 @@
   const photoDesc = $("#photoDesc");
   const photoCategory = $("#photoCategory");
   let pendingDataUrl = null;
+  let pendingFile = null;
 
   function openModal() {
     photoModal.classList.add("open");
@@ -293,12 +309,47 @@
 
   function resetModal() {
     pendingDataUrl = null;
+    pendingFile = null;
     photoInput.value = "";
     photoTitle.value = "";
     photoDesc.value = "";
     photoCategory.value = "everyday";
     photoPreviewImg.removeAttribute("src");
     photoPreview.innerHTML = '<span class="preview-empty">No image selected yet</span>';
+  }
+
+  function resizeImage(file, maxDim = 1600) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+                resolve(new File([blob], name, { type: "image/jpeg" }));
+              } else {
+                reject(new Error("Image conversion failed"));
+              }
+            },
+            "image/jpeg",
+            0.85
+          );
+        };
+        img.onerror = () => reject(new Error("Could not read the image"));
+        img.src = reader.result;
+      };
+      reader.onerror = () => reject(new Error("Could not read the file"));
+      reader.readAsDataURL(file);
+    });
   }
 
   addPhotoBtn.addEventListener("click", () => photoInput.click());
@@ -309,6 +360,7 @@
       showToast("Please choose an image file");
       return;
     }
+    pendingFile = file;
     const reader = new FileReader();
     reader.onload = () => {
       pendingDataUrl = reader.result;
@@ -346,32 +398,49 @@
   });
 
   photoSave.addEventListener("click", async () => {
-    if (!pendingDataUrl) {
+    if (!pendingFile || !pendingDataUrl) {
       showToast("No image selected");
       return;
     }
-    const record = {
-      id: `saved-${Date.now()}`,
-      dataUrl: pendingDataUrl,
-      title: (photoTitle.value || "Our Memory").trim(),
-      desc: photoDesc.value.trim(),
-      category: photoCategory.value,
-      dateLabel: new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" }),
-      addedAt: Date.now(),
-    };
+    photoSave.disabled = true;
+    photoSave.textContent = "Saving...";
     try {
-      await idbPut(record);
-      const card = makeSavedCard(record);
+      const resized = await resizeImage(pendingFile);
+      const ext = resized.type === "image/jpeg" ? "jpg" : "png";
+      const storagePath = `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .upload(storagePath, resized, { contentType: resized.type });
+      if (uploadError) throw uploadError;
+
+      const { data, error: insertError } = await supabase
+        .from("photos")
+        .insert({
+          title: (photoTitle.value || "Our Memory").trim(),
+          description: photoDesc.value.trim(),
+          category: photoCategory.value,
+          storage_path: storagePath,
+        })
+        .select()
+        .single();
+      if (insertError) throw insertError;
+
+      const url = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(storagePath).data.publicUrl;
+      const card = makeSavedCard({ ...data, url });
       galleryGrid.appendChild(card);
       bindCard(card);
       bindTilt(card);
       applyFilter();
       closeModal();
       setTimeout(resetModal, 350);
-      showToast("Photo saved to your album");
+      showToast("Photo shared with everyone");
     } catch (err) {
       console.error(err);
-      showToast("Could not save the photo");
+      showToast(err.message || "Could not save the photo");
+    } finally {
+      photoSave.disabled = false;
+      photoSave.textContent = "Save Photo";
     }
   });
 
@@ -424,4 +493,5 @@
 
   /* ---------- Init ---------- */
   loadSavedPhotos();
+  subscribeToPhotos();
 })();
