@@ -626,6 +626,7 @@
     photoModal.classList.add("open");
     photoModal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
+    initStickerGroups(true).catch(() => {});
   }
 
   function closeModal() {
@@ -880,14 +881,16 @@
     );
   }
 
-  async function fetchStickerGroupsFromGitHub() {
-    const cacheKey = "lc-stickers-v1";
-    try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
-      if (cached && Array.isArray(cached.groups) && cached.groups.length && Date.now() - cached.t < 3600000) {
-        return cached.groups;
-      }
-    } catch (_) {}
+  async function fetchStickerGroupsFromGitHub(force = false) {
+    const cacheKey = "lc-stickers-v2";
+    if (!force) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+        if (cached && Array.isArray(cached.groups) && cached.groups.length && Date.now() - cached.t < 120000) {
+          return cached.groups;
+        }
+      } catch (_) {}
+    }
     const base = `https://api.github.com/repos/${STICKERS_REPO}/contents/Stickers`;
     const res = await fetch(base);
     if (!res.ok) throw new Error("github list failed: " + res.status);
@@ -922,10 +925,10 @@
     return data.groups;
   }
 
-  async function initStickerGroups() {
+  async function initStickerGroups(force = false) {
     const sources = isLocalHost()
-      ? [fetchStickerGroupsFromManifest, fetchStickerGroupsFromGitHub]
-      : [fetchStickerGroupsFromGitHub, fetchStickerGroupsFromManifest];
+      ? [() => fetchStickerGroupsFromManifest(), () => fetchStickerGroupsFromGitHub(force)]
+      : [() => fetchStickerGroupsFromGitHub(force), () => fetchStickerGroupsFromManifest()];
     for (const src of sources) {
       try {
         const groups = await src();
@@ -936,7 +939,9 @@
       } catch (_) {}
     }
     if (!stickerGroups.length) stickerGroups = FALLBACK_STICKER_GROUPS.slice();
-    activeStickerGroup = stickerGroups[0] ? stickerGroups[0].id : null;
+    if (!stickerGroups.some((g) => g.id === activeStickerGroup)) {
+      activeStickerGroup = stickerGroups[0] ? stickerGroups[0].id : null;
+    }
     renderStickerSections();
     renderStickerGrid();
   }
