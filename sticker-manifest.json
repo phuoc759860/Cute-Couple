@@ -1,6 +1,33 @@
 {
   "groups": [
     {
+      "id": "cottage",
+      "label": "Cottage",
+      "folder": "Cottage",
+      "files": [
+        "IMG_3388.PNG",
+        "IMG_3391.PNG",
+        "IMG_3394.PNG",
+        "IMG_3395.PNG",
+        "IMG_3396.PNG",
+        "IMG_3397.PNG",
+        "IMG_3398.PNG",
+        "IMG_3399.PNG",
+        "IMG_3400.PNG",
+        "IMG_3401.PNG",
+        "IMG_3402.PNG",
+        "IMG_3403.PNG",
+        "IMG_3404.PNG",
+        "IMG_3405.PNG",
+        "IMG_3406.PNG",
+        "IMG_3407.PNG",
+        "IMG_3408.PNG",
+        "IMG_3409.PNG",
+        "IMG_3410.PNG",
+        "IMG_3411.PNG"
+      ]
+    },
+    {
       "id": "cute-girls",
       "label": "cute girls",
       "folder": "cute girls",
@@ -78,6 +105,60 @@
         "8765-chad-21.png",
         "9066-let-em-cook.png",
         "9144-the-rock.png"
+      ]
+    },
+    {
+      "id": "soft",
+      "label": "Soft",
+      "folder": "Soft",
+      "files": [
+        "IMG_3241.PNG",
+        "IMG_3250.PNG",
+        "IMG_3254.PNG",
+        "IMG_3256.PNG",
+        "IMG_3258.PNG",
+        "IMG_3267.PNG",
+        "IMG_3268.PNG",
+        "IMG_3269.PNG",
+        "IMG_3271.PNG",
+        "IMG_3273.PNG",
+        "IMG_3275.PNG",
+        "IMG_3277.PNG",
+        "IMG_3278.PNG",
+        "IMG_3279.PNG",
+        "IMG_3280.PNG",
+        "IMG_3281.PNG",
+        "IMG_3283.PNG",
+        "IMG_3284.PNG",
+        "IMG_3285.PNG",
+        "IMG_3287.PNG"
+      ]
+    },
+    {
+      "id": "vintage",
+      "label": "Vintage",
+      "folder": "Vintage",
+      "files": [
+        "IMG_3331.PNG",
+        "IMG_3332.PNG",
+        "IMG_3340.PNG",
+        "IMG_3341.PNG",
+        "IMG_3352.PNG",
+        "IMG_3353.PNG",
+        "IMG_3354.PNG",
+        "IMG_3355.PNG",
+        "IMG_3357.PNG",
+        "IMG_3358.PNG",
+        "IMG_3359.PNG",
+        "IMG_3360.PNG",
+        "IMG_3361.PNG",
+        "IMG_3362.PNG",
+        "IMG_3368.PNG",
+        "IMG_3369.PNG",
+        "IMG_3370.PNG",
+        "IMG_3371.PNG",
+        "IMG_3372.PNG",
+        "IMG_3373.PNG"
       ]
     }
   ]
