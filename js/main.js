@@ -86,6 +86,51 @@
   }
   for (let i = 0; i < 12; i++) setTimeout(spawnHeart, i * 260);
 
+  /* ---------- Days together counter ---------- */
+  const TOGETHER_DATE = new Date("2026-03-15T00:00:00").getTime();
+  const daysTogetherEl = $("#daysTogether");
+  let daysCounted = false;
+  function updateDaysTogether() {
+    if (!daysTogetherEl) return;
+    const days = Math.max(0, Math.floor((Date.now() - TOGETHER_DATE) / 86400000));
+    if (daysCounted) {
+      daysTogetherEl.textContent = days;
+      return;
+    }
+    daysCounted = true;
+    const start = performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - start) / 1600);
+      const eased = 1 - Math.pow(1 - p, 3);
+      daysTogetherEl.textContent = Math.round(days * eased);
+      if (p < 1) requestAnimationFrame(step);
+      else daysTogetherEl.textContent = days;
+    };
+    requestAnimationFrame(step);
+  }
+  updateDaysTogether();
+
+  /* ---------- Cursor heart trail ---------- */
+  const TRAIL_HEART_SVG =
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>';
+  function initCursorHearts() {
+    if (!window.matchMedia("(hover: hover)").matches || "ontouchstart" in window) return;
+    let last = 0;
+    document.addEventListener("pointermove", (e) => {
+      const now = performance.now();
+      if (now - last < 70) return;
+      last = now;
+      const span = document.createElement("span");
+      span.className = "trail-heart";
+      span.style.left = `${e.clientX + (Math.random() * 14 - 7)}px`;
+      span.style.top = `${e.clientY + (Math.random() * 14 - 7)}px`;
+      span.innerHTML = TRAIL_HEART_SVG;
+      document.body.appendChild(span);
+      setTimeout(() => span.remove(), 1100);
+    });
+  }
+  initCursorHearts();
+
   /* ---------- Gallery filtering + pagination + search ---------- */
   const galleryGrid = $("#galleryGrid");
   const paginationEl = $("#pagination");
@@ -291,6 +336,18 @@
   }
   refreshBtn.addEventListener("click", refreshPhotos);
 
+  /* ---------- Surprise me ---------- */
+  const surpriseBtn = $("#surpriseBtn");
+  surpriseBtn.addEventListener("click", () => {
+    const visible = visibleCards();
+    if (!visible.length) {
+      showToast("No memories to surprise you with yet");
+      return;
+    }
+    const idx = Math.floor(Math.random() * visible.length);
+    openLightbox(idx);
+  });
+
   /* ---------- Tilt effect ---------- */
   function bindTilt(card) {
     if (!window.matchMedia("(hover: hover)").matches) return;
@@ -320,7 +377,41 @@
   const lightboxClose = $("#lightboxClose");
   const lightboxPrev = $("#lightboxPrev");
   const lightboxNext = $("#lightboxNext");
+  const lightboxSlideshow = $("#lightboxSlideshow");
   let lightboxIndex = 0;
+  let slideshowTimer = null;
+
+  function stopSlideshow() {
+    if (!slideshowTimer) return;
+    clearInterval(slideshowTimer);
+    slideshowTimer = null;
+    lightboxSlideshow.classList.remove("playing");
+    lightboxSlideshow.textContent = "\u25B6";
+    lightboxSlideshow.setAttribute("aria-label", "Start slideshow");
+  }
+
+  function toggleSlideshow() {
+    if (slideshowTimer) {
+      stopSlideshow();
+      return;
+    }
+    const visible = visibleCards();
+    if (visible.length < 2) {
+      showToast("Add a few more memories for a slideshow");
+      return;
+    }
+    lightboxSlideshow.classList.add("playing");
+    lightboxSlideshow.textContent = "\u275A\u275A";
+    lightboxSlideshow.setAttribute("aria-label", "Stop slideshow");
+    slideshowTimer = setInterval(() => {
+      const vis = visibleCards();
+      if (!vis.length) {
+        stopSlideshow();
+        return;
+      }
+      openLightbox((lightboxIndex + 1) % vis.length);
+    }, 3500);
+  }
 
   const CATEGORY_LABELS = {
     all: "All",
@@ -354,6 +445,7 @@
   }
 
   function closeLightbox() {
+    stopSlideshow();
     lightbox.classList.remove("open");
     lightbox.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
@@ -371,6 +463,7 @@
   lightboxClose.addEventListener("click", closeLightbox);
   lightboxPrev.addEventListener("click", () => openLightbox(lightboxIndex - 1));
   lightboxNext.addEventListener("click", () => openLightbox(lightboxIndex + 1));
+  lightboxSlideshow.addEventListener("click", toggleSlideshow);
   lightboxDownload.addEventListener("click", downloadCurrentPhoto);
   lightbox.addEventListener("click", (e) => {
     if (e.target === lightbox) closeLightbox();
@@ -380,6 +473,7 @@
     if (e.key === "Escape") closeLightbox();
     if (e.key === "ArrowLeft") openLightbox(lightboxIndex - 1);
     if (e.key === "ArrowRight") openLightbox(lightboxIndex + 1);
+    if (e.key.toLowerCase() === "s") toggleSlideshow();
   });
 
   async function downloadCurrentPhoto() {
@@ -688,6 +782,7 @@
       addGalleryCard(makeSavedCard({ ...data, url }), true);
       closeModal();
       setTimeout(resetModal, 350);
+      burstHearts();
       showToast("Photo shared with everyone");
     } catch (err) {
       console.error(err);
@@ -1333,6 +1428,56 @@
   );
   revealEls.forEach((el) => observer.observe(el));
 
+  /* ---------- Heart confetti ---------- */
+  const confettiCanvas = $("#confettiCanvas");
+  function burstHearts(count = 26) {
+    if (!confettiCanvas) return;
+    const ctx = confettiCanvas.getContext("2d");
+    const W = (confettiCanvas.width = window.innerWidth);
+    const H = (confettiCanvas.height = window.innerHeight);
+    const parts = Array.from({ length: count }, () => ({
+      x: W * 0.25 + Math.random() * W * 0.5,
+      y: H * 0.3 + Math.random() * H * 0.25,
+      vy: -(0.8 + Math.random() * 1.3),
+      vx: (Math.random() - 0.5) * 1.5,
+      s: 8 + Math.random() * 14,
+      r: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.12,
+      hue: Math.random(),
+    }));
+    function heartPath(x, y, s) {
+      ctx.moveTo(x, y + s);
+      ctx.bezierCurveTo(x - s, y + s * 0.4, x - s, y - s * 0.5, x, y - s * 0.1);
+      ctx.bezierCurveTo(x + s, y - s * 0.5, x + s, y + s * 0.4, x, y + s);
+      ctx.closePath();
+    }
+    let frame = 0;
+    (function tick() {
+      frame++;
+      ctx.clearRect(0, 0, W, H);
+      let alive = false;
+      for (const p of parts) {
+        p.x += p.vx + Math.sin((frame + p.r * 20) / 18) * 0.4;
+        p.y += p.vy * 0.9;
+        p.vy *= 0.985;
+        p.vx *= 0.985;
+        p.r += p.vr;
+        if (p.y < -50) continue;
+        alive = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.r);
+        ctx.fillStyle = p.hue < 0.5 ? "#e0527a" : p.hue < 0.8 ? "#ff9eb8" : "#ffd9a8";
+        ctx.beginPath();
+        heartPath(0, 0, p.s);
+        ctx.fill();
+        ctx.restore();
+      }
+      if (alive) requestAnimationFrame(tick);
+      else ctx.clearRect(0, 0, W, H);
+    })();
+  }
+
   /* ---------- Toast ---------- */
   function showToast(msg) {
     const toast = $("#toast");
@@ -1342,9 +1487,211 @@
     showToast._t = setTimeout(() => toast.classList.remove("show"), 2600);
   }
 
+  /* ---------- Ambient music (Web Audio) ---------- */
+  const musicBtn = $("#musicBtn");
+  let audioCtx = null;
+  let musicMaster = null;
+  let musicScheduled = null;
+  let musicOn = false;
+  let musicStepIndex = 0;
+  let musicNextTime = 0;
+
+  function noteFreq(name) {
+    const names = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+    const m = name.match(/^([A-G])(\d)(#?)$/);
+    if (!m) return 0;
+    const semis = (parseInt(m[2], 10) + 1) * 12 + names[m[1]] + (m[3] ? 1 : 0);
+    return 440 * Math.pow(2, (semis - 69) / 12);
+  }
+  const SONG = [
+    ["E4"], ["C4"], ["G4"], ["B4"],
+    ["E4"], ["C4"], ["A3"], ["E4"],
+    ["C4"], ["A3"], ["F3"], ["C4"],
+    ["A3"], ["F3"], ["G3"], ["D4"],
+    ["B3"], ["G3"], ["C4"], ["G4"],
+  ].map(([n]) => ({ freq: noteFreq(n), dur: 0.5 }));
+
+  function playMusicNote(freq, when, dur) {
+    const osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const osc2 = audioCtx.createOscillator();
+    osc2.type = "sine";
+    osc2.frequency.value = freq * 2;
+    const g1 = audioCtx.createGain();
+    g1.gain.value = 0.7;
+    const g2 = audioCtx.createGain();
+    g2.gain.value = 0.12;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.05, when + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    osc.connect(g1).connect(g);
+    osc2.connect(g2).connect(g);
+    g.connect(musicMaster);
+    osc.start(when);
+    osc.stop(when + dur + 0.05);
+    osc2.start(when);
+    osc2.stop(when + dur + 0.05);
+  }
+
+  function scheduleMusicLoop() {
+    if (!musicOn || !audioCtx) return;
+    const horizon = audioCtx.currentTime + 0.6;
+    while (musicNextTime < horizon) {
+      const step = SONG[musicStepIndex % SONG.length];
+      playMusicNote(step.freq, musicNextTime, step.dur * 1.7);
+      musicNextTime += step.dur;
+      musicStepIndex++;
+    }
+  }
+
+  function stopMusic() {
+    musicOn = false;
+    clearInterval(musicScheduled);
+    musicScheduled = null;
+    if (audioCtx && musicMaster) {
+      const t = audioCtx.currentTime;
+      musicMaster.gain.cancelScheduledValues(t);
+      musicMaster.gain.setValueAtTime(musicMaster.gain.value || 0.0001, t);
+      musicMaster.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      const ctx = audioCtx;
+      setTimeout(() => {
+        if (!musicOn) ctx.close().catch(() => {});
+      }, 500);
+    }
+    audioCtx = null;
+    musicMaster = null;
+  }
+
+  function startMusic() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) {
+      showToast("Music isn't supported on this device");
+      return;
+    }
+    if (!audioCtx) {
+      audioCtx = new AC();
+      musicMaster = audioCtx.createGain();
+      musicMaster.gain.value = 0.0001;
+      musicMaster.connect(audioCtx.destination);
+      musicNextTime = audioCtx.currentTime + 0.1;
+      musicStepIndex = 0;
+    }
+    audioCtx.resume().catch(() => {});
+    const t = audioCtx.currentTime;
+    musicMaster.gain.cancelScheduledValues(t);
+    musicMaster.gain.setValueAtTime(0.0001, t);
+    musicMaster.gain.exponentialRampToValueAtTime(0.55, t + 0.8);
+    musicOn = true;
+    if (!musicScheduled) {
+      musicScheduled = setInterval(scheduleMusicLoop, 120);
+      scheduleMusicLoop();
+    }
+  }
+
+  musicBtn.addEventListener("click", () => {
+    if (musicOn) {
+      musicBtn.classList.remove("playing");
+      musicBtn.setAttribute("aria-label", "Play our song");
+      stopMusic();
+    } else {
+      musicBtn.classList.add("playing");
+      musicBtn.setAttribute("aria-label", "Pause music");
+      startMusic();
+    }
+  });
+
+  /* ---------- Love Notes guestbook ---------- */
+  const notesGrid = $("#notesGrid");
+  const notesEmpty = $("#notesEmpty");
+  const notesOffline = $("#notesOffline");
+  const noteName = $("#noteName");
+  const noteText = $("#noteText");
+  const noteSend = $("#noteSend");
+
+  function noteTimeLabel(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return "just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+  }
+
+  function addNoteCard(note) {
+    const card = document.createElement("blockquote");
+    card.className = "note-card";
+    card.innerHTML = `
+      <span class="note-quote">“</span>
+      <p class="note-text">${escapeHtml(note.message)}</p>
+      <footer class="note-meta">
+        <cite>— ${escapeHtml(note.name || "Anonymous")}</cite>
+        <time>${noteTimeLabel(note.created_at)}</time>
+      </footer>`;
+    notesGrid.prepend(card);
+    notesEmpty.classList.toggle("show", !notesGrid.children.length);
+  }
+
+  async function initNotes() {
+    try {
+      const { data, error } = await supabase
+        .from("love_messages")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      (data || []).forEach(addNoteCard);
+      supabase
+        .channel("love-notes-live")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "love_messages" },
+          (payload) => addNoteCard(payload.new)
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("Guestbook not available:", err.message || err);
+      notesOffline.hidden = false;
+      notesEmpty.classList.remove("show");
+      noteName.disabled = true;
+      noteText.disabled = true;
+      noteSend.disabled = true;
+    }
+  }
+
+  function postNote() {
+    const msg = noteText.value.trim();
+    const name = noteName.value.trim() || "Anonymous";
+    if (!msg) {
+      showToast("Write a sweet note first");
+      return;
+    }
+    noteSend.disabled = true;
+    supabase
+      .from("love_messages")
+      .insert({ name, message: msg })
+      .then(({ error }) => {
+        if (error) throw error;
+        noteText.value = "";
+        showToast("Your note was posted");
+      })
+      .catch((err) => {
+        console.error(err);
+        showToast(err.message || "Could not post your note");
+      })
+      .finally(() => {
+        noteSend.disabled = false;
+      });
+  }
+  noteSend.addEventListener("click", postNote);
+  noteText.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") postNote();
+  });
+
   /* ---------- Init ---------- */
   initGalleryCards();
   renderGallery();
   loadSavedPhotos();
   subscribeToPhotos();
+  initNotes();
 })();

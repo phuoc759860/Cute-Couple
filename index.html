@@ -64,7 +64,7 @@
         <a href="#story" class="btn btn-ghost">Our Story</a>
       </div>
       <div class="hero-stats">
-        <div class="stat"><strong>1</strong><span>Years Together</span></div>
+        <div class="stat days"><strong id="daysTogether">0</strong><span>Days Together</span></div>
         <div class="stat"><strong>1</strong><span>Countries</span></div>
         <div class="stat"><strong>∞</strong><span>Love</span></div>
       </div>
@@ -96,6 +96,9 @@
             <path d="M12 5v14M5 12h14"/>
           </svg>
           Add Photo
+        </button>
+        <button class="icon-btn" id="surpriseBtn" type="button" title="Surprise me with a memory" aria-label="Surprise me">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.7L19 10l-5.1 1.3L12 17l-1.9-5.7L5 10l5.1-1.3z"/><path d="M19 15l.9 2.6L22 18.5l-2.1.9L19 22l-.9-2.6-2.1-.9 2.1-.9z"/></svg>
         </button>
         <button class="icon-btn" id="refreshBtn" type="button" title="Refresh photos" aria-label="Refresh photos">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
@@ -196,24 +199,20 @@
     <div class="section-head">
       <p class="section-eyebrow">Love Notes</p>
       <h2 class="section-title">Little Things I <span class="accent">Never Said</span></h2>
+      <p class="section-sub">Leave a sweet note for us — it stays here forever.</p>
     </div>
-    <div class="notes-grid">
-      <blockquote class="note-card reveal">
-        <span class="note-quote">“</span>
-        <p>You're my favorite hello and my hardest goodbye.</p>
-        <cite>— Always yours</cite>
-      </blockquote>
-      <blockquote class="note-card reveal">
-        <span class="note-quote">“</span>
-        <p>I loved you yesterday, I love you still, I always have, I always will.</p>
-        <cite>— Forever</cite>
-      </blockquote>
-      <blockquote class="note-card reveal">
-        <span class="note-quote">“</span>
-        <p>In a sea of people, my eyes will always look for you.</p>
-        <cite>— Patiently yours</cite>
-      </blockquote>
+    <div class="notes-compose">
+      <input type="text" id="noteName" maxlength="30" placeholder="Your name (e.g. Bà Xã)" autocomplete="off" />
+      <div class="notes-input-row">
+        <input type="text" id="noteText" maxlength="140" placeholder="Write something sweet..." autocomplete="off" />
+        <button class="btn btn-primary" id="noteSend" type="button">Send</button>
+      </div>
     </div>
+    <div class="notes-offline" id="notesOffline" hidden>
+      The guestbook isn't connected yet — run the setup SQL to switch it on.
+    </div>
+    <div class="notes-grid" id="notesGrid"></div>
+    <p class="notes-empty" id="notesEmpty">Be the first to leave a note for us. &#10084;</p>
   </section>
 
   <!-- Footer -->
@@ -357,12 +356,21 @@
     </figure>
     <div class="lightbox-extra">
       <span class="lightbox-counter" id="lightboxCounter"></span>
+      <button class="lightbox-btn lightbox-slideshow" id="lightboxSlideshow" aria-label="Start slideshow" title="Slideshow">&#9654;</button>
       <button class="lightbox-btn lightbox-download" id="lightboxDownload" aria-label="Download photo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
       </button>
     </div>
-    <p class="lightbox-hints">&#8592; &#8594; to browse &middot; ESC to close</p>
+    <p class="lightbox-hints">&#8592; &#8594; to browse &middot; S to play &middot; ESC to close</p>
   </div>
+
+  <!-- Floating music button -->
+  <button class="music-btn" id="musicBtn" type="button" aria-label="Play our song" title="Play our song">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+  </button>
+
+  <!-- Confetti canvas (celebrations) -->
+  <canvas id="confettiCanvas" aria-hidden="true"></canvas>
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>
