@@ -1494,6 +1494,34 @@ section {
   color: var(--ink-soft);
   margin-bottom: 8px;
 }
+.sticker-sections {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.sticker-section-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s var(--ease);
+}
+.sticker-section-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+.sticker-section-btn.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
 .sticker-images-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);

@@ -704,47 +704,54 @@
   const EMOJI_FONT =
     '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
 
-  const CUSTOM_STICKERS = [
-    "1028-sex-2.png",
-    "1157-cute-girl-17.png",
-    "1767-cute-girl-29.png",
-    "1828-cute-girl-14.png",
-    "1917-nom-fast.png",
-    "2026-smoking-rat.jpg",
-    "2217-cute-girl-27.png",
-    "2242-cute-girl-23.png",
-    "2467-cute-girl-5.png",
-    "2544-cute-girl-26.png",
-    "2664-cute-girl-20.png",
-    "2669-cute-girl-24.png",
-    "3083-cute-girl-19.png",
-    "3287-cute-girl-16.png",
-    "3306-cute-girl-2.png",
-    "3516-cat-meme-2.png",
-    "3965-cute-girl-1.png",
-    "4003-cute-girl-28.png",
-    "4018-meme-brain-11.png",
-    "4458-yeaaaa.gif",
-    "4497-cute-girl-25.png",
-    "4727-ishowspeed.png",
-    "4838-cute-girl-22.png",
-    "5081-cute-girl-21.png",
-    "6273-what-the.png",
-    "6307-cute-girl-10.png",
-    "6543-stop-pls.png",
-    "6665-scubaa.gif",
-    "7399-cute-girl-12.png",
-    "7444-meme-brain-7.png",
-    "7790-cute-girl-7.png",
-    "7969-cute-girl-4.png",
-    "8765-chad-21.png",
-    "8789-cute-girl-30.png",
-    "8924-cute-girl-11.png",
-    "9066-let-em-cook.png",
-    "9144-the-rock.png",
-    "9228-cute-girl-8.png",
-    "9286-cute-girl-15.png",
+  const STICKER_GROUPS = [
+    {
+      id: "cute",
+      label: "Cute girls",
+      folder: "cute girls",
+      files: [
+        "1157-cute-girl-17.png", "1767-cute-girl-29.png", "1828-cute-girl-14.png",
+        "2217-cute-girl-27.png", "2242-cute-girl-23.png", "2467-cute-girl-5.png",
+        "2544-cute-girl-26.png", "2664-cute-girl-20.png", "2669-cute-girl-24.png",
+        "3083-cute-girl-19.png", "3287-cute-girl-16.png", "3306-cute-girl-2.png",
+        "3965-cute-girl-1.png", "4003-cute-girl-28.png", "4497-cute-girl-25.png",
+        "4838-cute-girl-22.png", "5081-cute-girl-21.png", "6307-cute-girl-10.png",
+        "7399-cute-girl-12.png", "7790-cute-girl-7.png", "7969-cute-girl-4.png",
+        "8789-cute-girl-30.png", "8924-cute-girl-11.png", "9228-cute-girl-8.png",
+        "9286-cute-girl-15.png",
+      ],
+    },
+    {
+      id: "hamster",
+      label: "Hamster",
+      folder: "hamster",
+      files: [
+        "1519-kawaii-hamster.png", "2023-kawaii-hamster.png", "2286-kawaii-hamster.png",
+        "2387-kawaii-hamster.png", "3789-kawaii-hamster.png", "4088-kawaii-hamster.png",
+        "4245-kawaii-hamster.png", "4246-kawaii-hamster.png", "4522-kawaii-hamster.png",
+        "5190-kawaii-hamster.png", "5462-kawaii-hamster.png", "5536-kawaii-hamster.png",
+        "6275-kawaii-hamster.png", "6617-kawaii-hamster.png", "7571-kawaii-hamster.png",
+        "8288-kawaii-hamster.png", "8581-kawaii-hamster.png", "9297-kawaii-hamster.png",
+        "9505-kawaii-hamster.png", "9795-kawaii-hamster.png",
+      ],
+    },
+    {
+      id: "meme",
+      label: "Meme",
+      folder: "Meme",
+      files: [
+        "1028-sex-2.png", "1917-nom-fast.png", "2026-smoking-rat.jpg",
+        "3516-cat-meme-2.png", "4018-meme-brain-11.png", "4458-yeaaaa.gif",
+        "4727-ishowspeed.png", "6273-what-the.png", "6543-stop-pls.png",
+        "6665-scubaa.gif", "7444-meme-brain-7.png", "8765-chad-21.png",
+        "9066-let-em-cook.png", "9144-the-rock.png",
+      ],
+    },
   ];
+
+  function stickerSrc(group, file) {
+    return "Stickers/" + encodeURI(group.folder) + "/" + encodeURI(file);
+  }
 
   const stickerImgCache = new Map();
   function getStickerImage(src) {
@@ -757,6 +764,8 @@
   }
 
   const stickerImagesGrid = $("#stickerImagesGrid");
+  const stickerSections = $("#stickerSections");
+  let activeStickerGroup = STICKER_GROUPS[0].id;
 
   const editor = {
     baseImage: null,
@@ -942,17 +951,45 @@
     addSticker({ type: "emoji", content: btn.dataset.sticker, x: 0.5, y: 0.5, size: 0.16 });
   });
 
-  CUSTOM_STICKERS.forEach((file) => {
-    const src = "Stickers/" + file;
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "sticker-img-btn";
-    btn.dataset.stickerSrc = src;
-    const img = document.createElement("img");
-    img.src = src;
-    img.alt = "sticker";
-    btn.appendChild(img);
-    stickerImagesGrid.appendChild(btn);
+  function renderStickerSections() {
+    stickerSections.innerHTML = "";
+    STICKER_GROUPS.forEach((g) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "sticker-section-btn" + (g.id === activeStickerGroup ? " active" : "");
+      btn.dataset.stickerGroup = g.id;
+      btn.textContent = g.label;
+      stickerSections.appendChild(btn);
+    });
+  }
+
+  function renderStickerGrid() {
+    const group = STICKER_GROUPS.find((g) => g.id === activeStickerGroup);
+    stickerImagesGrid.innerHTML = "";
+    if (!group) return;
+    group.files.forEach((file) => {
+      const src = stickerSrc(group, file);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "sticker-img-btn";
+      btn.dataset.stickerSrc = src;
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = "sticker";
+      btn.appendChild(img);
+      stickerImagesGrid.appendChild(btn);
+    });
+  }
+
+  renderStickerSections();
+  renderStickerGrid();
+
+  stickerSections.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-sticker-group]");
+    if (!btn) return;
+    activeStickerGroup = btn.dataset.stickerGroup;
+    renderStickerSections();
+    renderStickerGrid();
   });
 
   stickerImagesGrid.addEventListener("click", (e) => {
