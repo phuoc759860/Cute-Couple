@@ -1522,6 +1522,18 @@ section {
   color: #fff;
   box-shadow: var(--shadow-sm);
 }
+.sticker-images-empty {
+  display: none;
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: 14px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+.sticker-images-empty.show {
+  display: block;
+}
 .sticker-images-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);

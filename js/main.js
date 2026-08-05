@@ -704,7 +704,7 @@
   const EMOJI_FONT =
     '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
 
-  const STICKER_GROUPS = [
+  const FALLBACK_STICKER_GROUPS = [
     {
       id: "cute",
       label: "Cute girls",
@@ -749,6 +749,86 @@
     },
   ];
 
+  const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|bmp)$/i;
+
+  const slug = (s) =>
+    String(s)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "stickers";
+
+  let stickerGroups = [];
+  let activeStickerGroup = null;
+
+  function isLocalHost() {
+    return (
+      location.protocol === "file:" ||
+      location.hostname === "localhost" ||
+      location.hostname === "127.0.0.1"
+    );
+  }
+
+  async function fetchStickerGroupsFromGitHub() {
+    const cacheKey = "lc-stickers-v1";
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached && Array.isArray(cached.groups) && cached.groups.length && Date.now() - cached.t < 3600000) {
+        return cached.groups;
+      }
+    } catch (_) {}
+    const base = `https://api.github.com/repos/${STICKERS_REPO}/contents/Stickers`;
+    const res = await fetch(base);
+    if (!res.ok) throw new Error("github list failed: " + res.status);
+    const items = await res.json();
+    if (!Array.isArray(items)) throw new Error("unexpected github response");
+    const groups = [];
+    for (const item of items) {
+      if (item.type !== "dir") continue;
+      const subRes = await fetch(item.url);
+      if (!subRes.ok) continue;
+      const sub = await subRes.json();
+      if (!Array.isArray(sub)) continue;
+      const files = sub
+        .filter((f) => f.type === "file" && IMAGE_EXT_RE.test(f.name))
+        .map((f) => f.name)
+        .sort();
+      if (!files.length) continue;
+      groups.push({ id: slug(item.name), label: item.name, folder: item.name, files });
+    }
+    groups.sort((a, b) => a.label.localeCompare(b.label));
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), groups }));
+    } catch (_) {}
+    return groups;
+  }
+
+  async function fetchStickerGroupsFromManifest() {
+    const res = await fetch("sticker-manifest.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("sticker manifest missing");
+    const data = await res.json();
+    if (!data || !Array.isArray(data.groups)) throw new Error("bad sticker manifest");
+    return data.groups;
+  }
+
+  async function initStickerGroups() {
+    const sources = isLocalHost()
+      ? [fetchStickerGroupsFromManifest, fetchStickerGroupsFromGitHub]
+      : [fetchStickerGroupsFromGitHub, fetchStickerGroupsFromManifest];
+    for (const src of sources) {
+      try {
+        const groups = await src();
+        if (groups && groups.length) {
+          stickerGroups = groups;
+          break;
+        }
+      } catch (_) {}
+    }
+    if (!stickerGroups.length) stickerGroups = FALLBACK_STICKER_GROUPS.slice();
+    activeStickerGroup = stickerGroups[0] ? stickerGroups[0].id : null;
+    renderStickerSections();
+    renderStickerGrid();
+  }
+
   function stickerSrc(group, file) {
     return "Stickers/" + encodeURI(group.folder) + "/" + encodeURI(file);
   }
@@ -765,7 +845,7 @@
 
   const stickerImagesGrid = $("#stickerImagesGrid");
   const stickerSections = $("#stickerSections");
-  let activeStickerGroup = STICKER_GROUPS[0].id;
+  const stickerImagesEmpty = $("#stickerImagesEmpty");
 
   const editor = {
     baseImage: null,
@@ -953,7 +1033,7 @@
 
   function renderStickerSections() {
     stickerSections.innerHTML = "";
-    STICKER_GROUPS.forEach((g) => {
+    stickerGroups.forEach((g) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "sticker-section-btn" + (g.id === activeStickerGroup ? " active" : "");
@@ -964,9 +1044,11 @@
   }
 
   function renderStickerGrid() {
-    const group = STICKER_GROUPS.find((g) => g.id === activeStickerGroup);
+    const group = stickerGroups.find((g) => g.id === activeStickerGroup);
     stickerImagesGrid.innerHTML = "";
-    if (!group) return;
+    const hasStickers = !!group && group.files.length > 0;
+    stickerImagesEmpty.classList.toggle("show", !hasStickers);
+    if (!hasStickers) return;
     group.files.forEach((file) => {
       const src = stickerSrc(group, file);
       const btn = document.createElement("button");
@@ -981,8 +1063,7 @@
     });
   }
 
-  renderStickerSections();
-  renderStickerGrid();
+  initStickerGroups();
 
   stickerSections.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-sticker-group]");
