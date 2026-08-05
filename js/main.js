@@ -699,13 +699,12 @@
 
   addPhotoBtn.addEventListener("click", () => photoInput.click());
   emptyAddBtn.addEventListener("click", () => photoInput.click());
-  photoInput.addEventListener("change", () => {
-    const file = photoInput.files && photoInput.files[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      showToast("Please choose an image file");
-      return;
-    }
+
+  function isHeicFile(file) {
+    return /\.(heic|heif)$/i.test(file.name) || file.type === "image/heic" || file.type === "image/heif";
+  }
+
+  function beginPhotoEdit(file) {
     pendingFile = file;
     const reader = new FileReader();
     reader.onload = () => {
@@ -722,6 +721,34 @@
       img.src = pendingDataUrl;
     };
     reader.readAsDataURL(file);
+  }
+
+  photoInput.addEventListener("change", () => {
+    const file = photoInput.files && photoInput.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") && !isHeicFile(file)) {
+      showToast("Please choose an image file");
+      return;
+    }
+    if (isHeicFile(file)) {
+      if (typeof window.heic2any !== "function") {
+        showToast("HEIC converter isn't loaded");
+        return;
+      }
+      showToast("Converting HEIC photo...");
+      window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 })
+        .then((result) => {
+          const blob = Array.isArray(result) ? result[0] : result;
+          const jpgName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+          beginPhotoEdit(new File([blob], jpgName, { type: "image/jpeg" }));
+        })
+        .catch((err) => {
+          console.error(err);
+          showToast("Could not convert this HEIC photo");
+        });
+      return;
+    }
+    beginPhotoEdit(file);
   });
 
   photoModalClose.addEventListener("click", () => {
@@ -1676,10 +1703,328 @@
     if (e.key === "Enter") postNote();
   });
 
+  /* ---------- Video gallery ---------- */
+  const addVideoBtn = $("#addVideoBtn");
+  const videoEmptyAddBtn = $("#videoEmptyAddBtn");
+  const videoRefreshBtn = $("#videoRefreshBtn");
+  const videoModalEl = $("#videoModal");
+  const videoModalClose = $("#videoModalClose");
+  const videoCancel = $("#videoCancel");
+  const videoSave = $("#videoSave");
+  const videoInput = $("#videoInput");
+  const videoDrop = $("#videoDrop");
+  const videoDropText = $("#videoDropText");
+  const videoDropFile = $("#videoDropFile");
+  const videoTitle = $("#videoTitle");
+  const videoDesc = $("#videoDesc");
+  const videoProgress = $("#videoProgress");
+  const videoProgressText = $("#videoProgressText");
+  const videosGrid = $("#videosGrid");
+  const videosCount = $("#videosCount");
+  const videosLoading = $("#videosLoading");
+  const videosEmpty = $("#videosEmpty");
+  const videosOffline = $("#videosOffline");
+  const videoViewer = $("#videoViewer");
+  const videoViewerPlayer = $("#videoViewerPlayer");
+  const videoViewerTitle = $("#videoViewerTitle");
+  const videoViewerClose = $("#videoViewerClose");
+  let pendingVideoFile = null;
+  let videosAvailable = true;
+
+  function videoPublicUrl(row) {
+    return supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(row.storage_path).data.publicUrl;
+  }
+
+  function openVideoModal() {
+    videoModalEl.classList.add("open");
+    videoModalEl.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeVideoModal() {
+    videoModalEl.classList.remove("open");
+    videoModalEl.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  function resetVideoModal() {
+    pendingVideoFile = null;
+    videoInput.value = "";
+    videoTitle.value = "";
+    videoDesc.value = "";
+    videoDropText.hidden = false;
+    videoDropFile.hidden = true;
+    videoDropFile.textContent = "";
+  }
+
+  addVideoBtn.addEventListener("click", () => videoInput.click());
+  videoEmptyAddBtn.addEventListener("click", () => videoInput.click());
+  videoDrop.addEventListener("click", () => videoInput.click());
+  videoInput.addEventListener("change", () => {
+    const file = videoInput.files && videoInput.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      showToast("Please choose a video file");
+      return;
+    }
+    if (file.size > 200 * 1024 * 1024) {
+      showToast("Video is too big (max 200 MB)");
+      return;
+    }
+    pendingVideoFile = file;
+    videoDropText.hidden = true;
+    videoDropFile.hidden = false;
+    videoDropFile.textContent = file.name + " (" + Math.round(file.size / 1024 / 1024) + " MB)";
+    if (!videoTitle.value) {
+      videoTitle.value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+    }
+  });
+
+  videoModalClose.addEventListener("click", () => {
+    closeVideoModal();
+    setTimeout(resetVideoModal, 350);
+  });
+  videoCancel.addEventListener("click", () => {
+    closeVideoModal();
+    setTimeout(resetVideoModal, 350);
+  });
+  videoModalEl.addEventListener("click", (e) => {
+    if (e.target === videoModalEl) {
+      closeVideoModal();
+      setTimeout(resetVideoModal, 350);
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!videoModalEl.classList.contains("open")) return;
+    if (e.key === "Escape") {
+      closeVideoModal();
+      setTimeout(resetVideoModal, 350);
+    }
+  });
+
+  videoSave.addEventListener("click", async () => {
+    if (!pendingVideoFile) {
+      showToast("Choose a video first");
+      return;
+    }
+    videoSave.disabled = true;
+    videoSave.textContent = "Saving...";
+    videoProgress.classList.add("show", "indeterminate");
+    videoProgressText.textContent = "Uploading your video...";
+    try {
+      const ext = (pendingVideoFile.name.match(/\.([a-z0-9]+)$/i) || [])[1] || "mp4";
+      const storagePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .upload(storagePath, pendingVideoFile, {
+          contentType: pendingVideoFile.type || "video/mp4",
+        });
+      if (upErr) throw upErr;
+
+      videoProgressText.textContent = "Saving details...";
+
+      const { data, error: insErr } = await supabase
+        .from("videos")
+        .insert({
+          title: (videoTitle.value || "Our Moment").trim(),
+          description: videoDesc.value.trim(),
+          storage_path: storagePath,
+        })
+        .select()
+        .single();
+      if (insErr) throw insErr;
+
+      addVideoCard(makeVideoCard({ ...data, url: videoPublicUrl(data) }), true);
+      closeVideoModal();
+      setTimeout(resetVideoModal, 350);
+      showToast("Video shared with everyone");
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Could not save the video");
+    } finally {
+      videoSave.disabled = false;
+      videoSave.textContent = "Save Video";
+      videoProgress.classList.remove("show", "indeterminate");
+    }
+  });
+
+  function makeVideoCard(record) {
+    const fig = document.createElement("figure");
+    fig.className = "video-card";
+    fig.dataset.videoId = record.id;
+    const dateLabel = new Date(record.created_at).toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+    fig.innerHTML = `
+      <video src="${record.url}" preload="metadata" muted playsinline></video>
+      <span class="video-play">&#9654;</span>
+      <figcaption class="video-overlay">
+        <p class="card-date">${escapeHtml(dateLabel)}</p>
+        <h3 class="card-title">${escapeHtml(record.title || "Our Moment")}</h3>
+        <p class="card-desc">${escapeHtml(record.description || "")}</p>
+      </figcaption>
+      <button class="card-delete" type="button" aria-label="Delete video">${DELETE_ICON}</button>
+    `;
+    const del = $(".card-delete", fig);
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!window.confirm("Remove this video from the album?")) return;
+      deleteVideo(record, fig);
+    });
+    fig.addEventListener("click", () => openVideoViewer(record, record.url));
+    return fig;
+  }
+
+  function addVideoCard(card, atTop = false) {
+    if (atTop) videosGrid.prepend(card);
+    else videosGrid.appendChild(card);
+    updateVideoCount();
+  }
+
+  function removeVideoCard(cardEl) {
+    cardEl.remove();
+    updateVideoCount();
+  }
+
+  function updateVideoCount() {
+    const n = videosGrid.children.length;
+    videosCount.innerHTML = n
+      ? `<strong>${n}</strong> ${n === 1 ? "video" : "videos"}`
+      : "0 videos";
+    videosEmpty.classList.toggle("show", videosAvailable && n === 0);
+    videosLoading.classList.remove("show");
+  }
+
+  async function loadVideos() {
+    try {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      (data || []).forEach((row) => addVideoCard(makeVideoCard({ ...row, url: videoPublicUrl(row) })));
+      videosOffline.hidden = true;
+    } catch (err) {
+      console.warn("Video gallery not available:", err.message || err);
+      videosAvailable = false;
+      videosOffline.hidden = false;
+      addVideoBtn.disabled = true;
+      videoEmptyAddBtn.disabled = true;
+      videoRefreshBtn.disabled = true;
+      videosCount.textContent = "";
+    } finally {
+      updateVideoCount();
+    }
+  }
+
+  async function refreshVideos() {
+    if (videoRefreshBtn.classList.contains("spinning")) return;
+    videoRefreshBtn.classList.add("spinning");
+    try {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const rows = data || [];
+      const serverIds = new Set(rows.map((r) => r.id));
+      Array.from(videosGrid.querySelectorAll(".video-card")).forEach((card) => {
+        if (card.dataset.videoId && !serverIds.has(card.dataset.videoId)) {
+          removeVideoCard(card);
+        }
+      });
+      const localIds = new Set(
+        Array.from(videosGrid.querySelectorAll(".video-card"))
+          .map((c) => c.dataset.videoId)
+          .filter(Boolean)
+      );
+      rows.slice().reverse().forEach((row) => {
+        if (localIds.has(row.id)) return;
+        addVideoCard(makeVideoCard({ ...row, url: videoPublicUrl(row) }), true);
+      });
+      showToast("Videos refreshed");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not refresh the videos");
+    } finally {
+      videoRefreshBtn.classList.remove("spinning");
+    }
+  }
+  videoRefreshBtn.addEventListener("click", refreshVideos);
+
+  async function deleteVideo(record, cardEl) {
+    try {
+      const { error: delErr } = await supabase.from("videos").delete().eq("id", record.id);
+      if (delErr) throw delErr;
+      const { error: stErr } = await supabase.storage.from(SUPABASE_BUCKET).remove([record.storage_path]);
+      if (stErr) throw stErr;
+      removeVideoCard(cardEl);
+      showToast("Video removed");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not remove the video");
+    }
+  }
+
+  function subscribeToVideos() {
+    try {
+      supabase
+        .channel("videos-live")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "videos" },
+          (payload) => {
+            const row = payload.new;
+            addVideoCard(makeVideoCard({ ...row, url: videoPublicUrl(row) }), true);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "videos" },
+          (payload) => {
+            const el = videosGrid.querySelector(`[data-video-id="${payload.old.id}"]`);
+            if (el) removeVideoCard(el);
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("Video realtime not available:", err.message || err);
+    }
+  }
+
+  function openVideoViewer(record, url) {
+    videoViewerPlayer.src = url;
+    videoViewerTitle.textContent = record.title || "Our Moment";
+    videoViewer.classList.add("open");
+    videoViewer.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    videoViewerPlayer.play().catch(() => {});
+  }
+
+  function closeVideoViewer() {
+    videoViewerPlayer.pause();
+    videoViewerPlayer.removeAttribute("src");
+    videoViewerPlayer.load();
+    videoViewer.classList.remove("open");
+    videoViewer.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+  videoViewerClose.addEventListener("click", closeVideoViewer);
+  videoViewer.addEventListener("click", (e) => {
+    if (e.target === videoViewer) closeVideoViewer();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!videoViewer.classList.contains("open")) return;
+    if (e.key === "Escape") closeVideoViewer();
+  });
+
   /* ---------- Init ---------- */
   initGalleryCards();
   renderGallery();
   loadSavedPhotos();
   subscribeToPhotos();
+  loadVideos();
+  subscribeToVideos();
   initNotes();
 })();

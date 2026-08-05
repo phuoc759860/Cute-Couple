@@ -31,6 +31,7 @@
       <ul class="nav-links" id="navLinks">
         <li><a href="#home" class="active">Home</a></li>
         <li><a href="#gallery">Gallery</a></li>
+        <li><a href="#videos">Videos</a></li>
         <li><a href="#story">Our Story</a></li>
         <li><a href="#countdown">Countdown</a></li>
         <li><a href="#messages">Love Notes</a></li>
@@ -104,7 +105,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
         </button>
       </div>
-      <input type="file" id="photoInput" accept="image/*" hidden />
+      <input type="file" id="photoInput" accept="image/*,.heic,.heif" hidden />
     </div>
 
     <div class="gallery-meta">
@@ -135,6 +136,43 @@
     </div>
 
     <div class="pagination" id="pagination" aria-label="Gallery pages"></div>
+  </section>
+
+  <!-- Videos -->
+  <section class="videos" id="videos">
+    <div class="section-head">
+      <p class="section-eyebrow">Videos</p>
+      <h2 class="section-title">Little Moments on <span class="accent">Film</span></h2>
+      <p class="section-sub">The clips that make us laugh, cry, and hit replay.</p>
+    </div>
+    <div class="videos-toolbar">
+      <button class="add-photo-btn" id="addVideoBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 8 6 4-6 4V8z"/><path d="M3 6a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"/></svg>
+        Add Video
+      </button>
+      <button class="icon-btn" id="videoRefreshBtn" type="button" title="Refresh videos" aria-label="Refresh videos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      </button>
+    </div>
+    <p class="videos-count" id="videosCount">0 videos</p>
+    <div class="videos-loading" id="videosLoading">
+      <span class="loader-heart">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+      </span>
+      <p>Loading our clips...</p>
+    </div>
+    <div class="videos-grid" id="videosGrid"></div>
+    <div class="videos-empty" id="videosEmpty">
+      <span class="empty-heart">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+      </span>
+      <h3 class="empty-title">No videos yet</h3>
+      <p class="empty-text">Add the first clip to our shared video album.</p>
+      <button class="btn btn-primary empty-cta" id="videoEmptyAddBtn" type="button">Add Your First Video</button>
+    </div>
+    <p class="videos-offline" id="videosOffline" hidden>
+      The video gallery isn't connected yet — run the setup SQL to switch it on.
+    </p>
   </section>
 
   <!-- Story / Timeline -->
@@ -337,6 +375,45 @@
     </div>
   </div>
 
+  <!-- Add Video Modal -->
+  <div class="modal" id="videoModal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle">
+      <button class="modal-close" id="videoModalClose" aria-label="Close">&times;</button>
+      <h3 id="videoModalTitle">Add a New Video</h3>
+      <label class="video-drop" id="videoDrop">
+        <input type="file" id="videoInput" accept="video/*,.mp4,.mov,.webm,.m4v" hidden />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        <span id="videoDropText">Click to choose a video (MP4, WebM, MOV)</span>
+        <span class="video-drop-file" id="videoDropFile" hidden></span>
+      </label>
+      <label class="field">
+        <span>Title</span>
+        <input type="text" id="videoTitle" maxlength="60" placeholder="e.g. Dancing in the kitchen" />
+      </label>
+      <label class="field">
+        <span>Caption</span>
+        <textarea id="videoDesc" rows="2" maxlength="140" placeholder="A little note about this clip"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="videoCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="videoSave" type="button">Save Video</button>
+      </div>
+      <div class="upload-progress" id="videoProgress" aria-hidden="true">
+        <div class="progress-track"><div class="progress-fill" id="videoProgressFill"></div></div>
+        <p class="progress-text" id="videoProgressText">Uploading your video...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video viewer -->
+  <div class="video-viewer" id="videoViewer" aria-hidden="true">
+    <button class="lightbox-btn lightbox-close video-viewer-close" id="videoViewerClose" aria-label="Close">&times;</button>
+    <div class="video-viewer-stage">
+      <video id="videoViewerPlayer" controls playsinline preload="metadata"></video>
+      <p class="video-viewer-title" id="videoViewerTitle"></p>
+    </div>
+  </div>
+
   <!-- Lightbox -->
   <div class="lightbox" id="lightbox" aria-hidden="true">
     <button class="lightbox-btn lightbox-close" id="lightboxClose" aria-label="Close">&times;</button>
@@ -377,6 +454,7 @@
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/main.js"></script>
 </body>
