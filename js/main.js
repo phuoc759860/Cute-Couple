@@ -2108,6 +2108,7 @@
     if (!videoTitle.value) {
       videoTitle.value = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
     }
+    openVideoModal();
   });
 
   videoModalClose.addEventListener("click", () => {
