@@ -1492,120 +1492,103 @@
     showToast._t = setTimeout(() => toast.classList.remove("show"), 2600);
   }
 
-  /* ---------- Ambient music (Web Audio) ---------- */
+  /* ---------- Ambient music ---------- */
   const musicBtn = $("#musicBtn");
-  let audioCtx = null;
-  let musicMaster = null;
-  let musicScheduled = null;
+  const musicNow = $("#musicNow");
+  const MUSIC_MANIFEST = "music-manifest.json";
+  const FALLBACK_TRACKS = ["Musics/Post Malone - Circles.mp3"];
+  const AUDIO_EXT_RE = /\.(mp3|m4a|ogg|oga|wav|flac)$/i;
+  const musicAudio = new Audio();
+  musicAudio.volume = 0.7;
+  musicAudio.preload = "metadata";
   let musicOn = false;
-  let musicStepIndex = 0;
-  let musicNextTime = 0;
+  let musicTracks = [];
+  let musicTrackIndex = 0;
 
-  function noteFreq(name) {
-    const names = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-    const m = name.match(/^([A-G])(\d)(#?)$/);
-    if (!m) return 0;
-    const semis = (parseInt(m[2], 10) + 1) * 12 + names[m[1]] + (m[3] ? 1 : 0);
-    return 440 * Math.pow(2, (semis - 69) / 12);
-  }
-  const SONG = [
-    ["E4"], ["C4"], ["G4"], ["B4"],
-    ["E4"], ["C4"], ["A3"], ["E4"],
-    ["C4"], ["A3"], ["F3"], ["C4"],
-    ["A3"], ["F3"], ["G3"], ["D4"],
-    ["B3"], ["G3"], ["C4"], ["G4"],
-  ].map(([n]) => ({ freq: noteFreq(n), dur: 0.5 }));
-
-  function playMusicNote(freq, when, dur) {
-    const osc = audioCtx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    const osc2 = audioCtx.createOscillator();
-    osc2.type = "sine";
-    osc2.frequency.value = freq * 2;
-    const g1 = audioCtx.createGain();
-    g1.gain.value = 0.7;
-    const g2 = audioCtx.createGain();
-    g2.gain.value = 0.12;
-    const g = audioCtx.createGain();
-    g.gain.setValueAtTime(0.0001, when);
-    g.gain.exponentialRampToValueAtTime(0.05, when + 0.04);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    osc.connect(g1).connect(g);
-    osc2.connect(g2).connect(g);
-    g.connect(musicMaster);
-    osc.start(when);
-    osc.stop(when + dur + 0.05);
-    osc2.start(when);
-    osc2.stop(when + dur + 0.05);
-  }
-
-  function scheduleMusicLoop() {
-    if (!musicOn || !audioCtx) return;
-    const horizon = audioCtx.currentTime + 0.6;
-    while (musicNextTime < horizon) {
-      const step = SONG[musicStepIndex % SONG.length];
-      playMusicNote(step.freq, musicNextTime, step.dur * 1.7);
-      musicNextTime += step.dur;
-      musicStepIndex++;
+  function trackLabel(src) {
+    try {
+      return decodeURIComponent(src.split("/").pop().replace(/\.[^.]+$/, ""));
+    } catch (_) {
+      return src;
     }
   }
 
-  function stopMusic() {
+  function setNowPlaying() {
+    if (!musicTracks.length) return;
+    musicNow.textContent = "♪ " + trackLabel(musicTracks[musicTrackIndex]);
+    musicNow.hidden = false;
+  }
+
+  async function initMusicTracks() {
+    try {
+      const res = await fetch(MUSIC_MANIFEST, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.tracks) && data.tracks.length) {
+          musicTracks = data.tracks.filter((t) => AUDIO_EXT_RE.test(t));
+        }
+      }
+    } catch (_) {}
+    if (!musicTracks.length) musicTracks = FALLBACK_TRACKS.slice();
+    if (!musicAudio.src) musicAudio.src = musicTracks[0];
+  }
+
+  function playMusic() {
+    const attempt = () =>
+      musicAudio.play().then(() => {
+        musicOn = true;
+        musicBtn.classList.add("playing");
+        musicBtn.setAttribute("aria-label", "Pause music");
+        setNowPlaying();
+      });
+    if (!musicTracks.length) {
+      initMusicTracks().then(attempt).catch((err) => {
+        console.error(err);
+        showToast("Could not find the music");
+      });
+    } else {
+      attempt().catch((err) => {
+        console.error(err);
+        showToast("Could not play the music");
+      });
+    }
+  }
+
+  function pauseMusic() {
     musicOn = false;
-    clearInterval(musicScheduled);
-    musicScheduled = null;
-    if (audioCtx && musicMaster) {
-      const t = audioCtx.currentTime;
-      musicMaster.gain.cancelScheduledValues(t);
-      musicMaster.gain.setValueAtTime(musicMaster.gain.value || 0.0001, t);
-      musicMaster.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-      const ctx = audioCtx;
-      setTimeout(() => {
-        if (!musicOn) ctx.close().catch(() => {});
-      }, 500);
-    }
-    audioCtx = null;
-    musicMaster = null;
+    musicAudio.pause();
+    musicBtn.classList.remove("playing");
+    musicBtn.setAttribute("aria-label", "Play our song");
+    musicNow.hidden = true;
   }
 
-  function startMusic() {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) {
-      showToast("Music isn't supported on this device");
-      return;
-    }
-    if (!audioCtx) {
-      audioCtx = new AC();
-      musicMaster = audioCtx.createGain();
-      musicMaster.gain.value = 0.0001;
-      musicMaster.connect(audioCtx.destination);
-      musicNextTime = audioCtx.currentTime + 0.1;
-      musicStepIndex = 0;
-    }
-    audioCtx.resume().catch(() => {});
-    const t = audioCtx.currentTime;
-    musicMaster.gain.cancelScheduledValues(t);
-    musicMaster.gain.setValueAtTime(0.0001, t);
-    musicMaster.gain.exponentialRampToValueAtTime(0.55, t + 0.8);
-    musicOn = true;
-    if (!musicScheduled) {
-      musicScheduled = setInterval(scheduleMusicLoop, 120);
-      scheduleMusicLoop();
-    }
-  }
+  musicAudio.addEventListener("ended", () => {
+    if (!musicTracks.length) return;
+    musicTrackIndex = (musicTrackIndex + 1) % musicTracks.length;
+    musicAudio.src = musicTracks[musicTrackIndex];
+    musicAudio.play().catch(() => {});
+    setNowPlaying();
+  });
+  musicAudio.addEventListener("error", () => {
+    if (musicOn) showToast("Could not load the music file");
+  });
 
   musicBtn.addEventListener("click", () => {
+    if (musicOn) pauseMusic();
+    else playMusic();
+  });
+  musicBtn.addEventListener("dblclick", () => {
+    if (!musicTracks.length || musicTracks.length < 2) return;
+    musicTrackIndex = (musicTrackIndex + 1) % musicTracks.length;
+    musicAudio.src = musicTracks[musicTrackIndex];
     if (musicOn) {
-      musicBtn.classList.remove("playing");
-      musicBtn.setAttribute("aria-label", "Play our song");
-      stopMusic();
-    } else {
-      musicBtn.classList.add("playing");
-      musicBtn.setAttribute("aria-label", "Pause music");
-      startMusic();
+      musicAudio.play().catch(() => {});
+      setNowPlaying();
     }
   });
+  musicBtn.title = "Play our song";
+
+  initMusicTracks();
 
   /* ---------- Love Notes guestbook ---------- */
   const notesGrid = $("#notesGrid");

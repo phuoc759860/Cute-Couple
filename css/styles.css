@@ -1956,6 +1956,27 @@ section {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
+.music-now {
+  position: fixed;
+  left: 22px;
+  bottom: 84px;
+  z-index: 950;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  color: var(--primary-dark);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 7px 15px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  max-width: 230px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---------- Love Notes guestbook ---------- */
 .notes-compose {
