@@ -367,6 +367,7 @@
   /* ---------- Lightbox ---------- */
   const lightbox = $("#lightbox");
   const lightboxImg = $("#lightboxImg");
+  const lightboxImgWrap = $("#lightboxImgWrap");
   const lightboxTitle = $("#lightboxTitle");
   const lightboxDesc = $("#lightboxDesc");
   const lightboxDate = $("#lightboxDate");
@@ -374,46 +375,23 @@
   const lightboxCategoryText = $("#lightboxCategoryText");
   const lightboxCounter = $("#lightboxCounter");
   const lightboxDownload = $("#lightboxDownload");
+  const lightboxShare = $("#lightboxShare");
+  const lightboxLike = $("#lightboxLike");
+  const lightboxLikes = $("#lightboxLikes");
   const lightboxEditDate = $("#lightboxEditDate");
   const lightboxClose = $("#lightboxClose");
   const lightboxPrev = $("#lightboxPrev");
   const lightboxNext = $("#lightboxNext");
   const lightboxSlideshow = $("#lightboxSlideshow");
+  const lightboxProgress = $("#lightboxProgress");
+  const lightboxMusic = $("#lightboxMusic");
+  const lightboxMusicLabel = $("#lightboxMusicLabel");
+  const lightboxBurst = $("#lightboxBurst");
   let lightboxIndex = 0;
   let lightboxCard = null;
-  let slideshowTimer = null;
-
-  function stopSlideshow() {
-    if (!slideshowTimer) return;
-    clearInterval(slideshowTimer);
-    slideshowTimer = null;
-    lightboxSlideshow.classList.remove("playing");
-    lightboxSlideshow.textContent = "\u25B6";
-    lightboxSlideshow.setAttribute("aria-label", "Start slideshow");
-  }
-
-  function toggleSlideshow() {
-    if (slideshowTimer) {
-      stopSlideshow();
-      return;
-    }
-    const visible = visibleCards();
-    if (visible.length < 2) {
-      showToast("Add a few more memories for a slideshow");
-      return;
-    }
-    lightboxSlideshow.classList.add("playing");
-    lightboxSlideshow.textContent = "\u275A\u275A";
-    lightboxSlideshow.setAttribute("aria-label", "Stop slideshow");
-    slideshowTimer = setInterval(() => {
-      const vis = visibleCards();
-      if (!vis.length) {
-        stopSlideshow();
-        return;
-      }
-      openLightbox((lightboxIndex + 1) % vis.length);
-    }, 3500);
-  }
+  let lightboxPlaying = false;
+  const STORY_DURATION = 6000;
+  const KENBURNS = ["kb-zoom", "kb-pan-left", "kb-pan-right", "kb-zoom-out"];
 
   const CATEGORY_LABELS = {
     all: "All",
@@ -423,33 +401,143 @@
     everyday: "Everyday",
   };
 
-  function openLightbox(index) {
+  /* ---------- Likes (localStorage per photo) ---------- */
+  const LIKES_KEY = "lc-photo-likes";
+  function loadLikes() {
+    try {
+      return JSON.parse(localStorage.getItem(LIKES_KEY)) || {};
+    } catch (_) {
+      return {};
+    }
+  }
+  function saveLikes(map) {
+    try {
+      localStorage.setItem(LIKES_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  /* ---------- Story progress bars ---------- */
+  lightboxProgress.style.setProperty("--story-duration", STORY_DURATION + "ms");
+
+  function renderProgressBars(count) {
+    lightboxProgress.innerHTML = "";
+    for (let i = 0; i < count; i++) {
+      const seg = document.createElement("button");
+      seg.type = "button";
+      seg.className = "lbp-seg";
+      seg.setAttribute("aria-label", "Go to photo " + (i + 1));
+      seg.innerHTML = '<span class="lbp-fill"></span>';
+      seg.addEventListener("click", (e) => {
+        e.stopPropagation();
+        goToPhoto(i);
+      });
+      lightboxProgress.appendChild(seg);
+    }
+  }
+
+  function setActiveProgress(index) {
+    Array.from(lightboxProgress.children).forEach((seg, i) => {
+      seg.classList.toggle("done", i < index);
+      seg.classList.toggle("active", i === index);
+    });
+  }
+
+  function pauseStory() {
+    lightboxPlaying = false;
+    lightbox.classList.add("paused");
+    lightboxSlideshow.innerHTML = "&#9654;";
+    lightboxSlideshow.setAttribute("aria-label", "Play");
+    lightboxSlideshow.title = "Play";
+  }
+
+  function playStory() {
+    if (!lightbox.classList.contains("open")) return;
+    lightboxPlaying = true;
+    lightbox.classList.remove("paused");
+    lightboxSlideshow.innerHTML = "&#10074;&#10074;";
+    lightboxSlideshow.setAttribute("aria-label", "Pause");
+    lightboxSlideshow.title = "Pause";
+  }
+
+  function toggleStory() {
+    if (lightboxPlaying) pauseStory();
+    else playStory();
+  }
+
+  lightboxProgress.addEventListener("animationend", (e) => {
+    if (
+      e.target.classList.contains("lbp-fill") &&
+      e.target.closest(".lbp-seg") &&
+      e.target.closest(".lbp-seg").classList.contains("active")
+    ) {
+      goToPhoto(lightboxIndex + 1);
+    }
+  });
+
+  /* ---------- Ken Burns + caption animation ---------- */
+  function applyKenBurns() {
+    KENBURNS.forEach((c) => lightboxImg.classList.remove(c));
+    const kb = KENBURNS[Math.floor(Math.random() * KENBURNS.length)];
+    void lightboxImg.offsetWidth;
+    lightboxImg.classList.add(kb);
+  }
+
+  function restartCaptionAnim() {
+    const caption = $("#lightboxCaption");
+    caption.classList.remove("anim");
+    void caption.offsetWidth;
+    caption.classList.add("anim");
+  }
+
+  function swapImage(src, alt) {
+    lightboxImg.classList.add("swapping");
+    setTimeout(() => {
+      lightboxImg.src = src;
+      lightboxImg.alt = alt || "";
+      applyKenBurns();
+      lightboxImg.classList.remove("swapping");
+    }, 240);
+  }
+
+  /* ---------- Navigation ---------- */
+  function goToPhoto(index) {
     const visible = visibleCards();
     if (!visible.length) return;
-    const clamped = Math.max(0, Math.min(index, visible.length - 1));
+    const clamped = ((index % visible.length) + visible.length) % visible.length;
     const card = visible[clamped];
     const img = $("img", card);
     const title = $(".card-title", card).textContent;
     const desc = $(".card-desc", card).textContent;
     const date = $(".card-date", card).textContent;
     const category = card.dataset.category || "everyday";
-    lightboxImg.src = img.src;
-    lightboxImg.alt = img.alt;
+    swapImage(img.src, img.alt);
     lightboxTitle.textContent = title || "Our Memory";
     lightboxDesc.textContent = desc;
     lightboxDate.textContent = date;
     lightboxCategoryText.textContent = CATEGORY_LABELS[category] || category;
     lightboxCounter.textContent = `${clamped + 1} / ${visible.length}`;
-    lightbox.classList.add("open");
-    lightbox.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
     lightboxIndex = clamped;
     lightboxCard = card;
     lightboxEditDate.hidden = !card._record;
+    setActiveProgress(clamped);
+    updateLikeState();
+    updateMusicPill();
+    restartCaptionAnim();
+  }
+
+  function openLightbox(index) {
+    const visible = visibleCards();
+    if (!visible.length) return;
+    renderProgressBars(visible.length);
+    goToPhoto(index);
+    lightbox.classList.add("open");
+    lightbox.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    playStory();
   }
 
   function closeLightbox() {
-    stopSlideshow();
+    pauseStory();
     lightbox.classList.remove("open");
     lightbox.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
@@ -465,19 +553,142 @@
   $$(".card", galleryGrid).forEach(bindCard);
 
   lightboxClose.addEventListener("click", closeLightbox);
-  lightboxPrev.addEventListener("click", () => openLightbox(lightboxIndex - 1));
-  lightboxNext.addEventListener("click", () => openLightbox(lightboxIndex + 1));
-  lightboxSlideshow.addEventListener("click", toggleSlideshow);
+  lightboxPrev.addEventListener("click", () => goToPhoto(lightboxIndex - 1));
+  lightboxNext.addEventListener("click", () => goToPhoto(lightboxIndex + 1));
+  lightboxSlideshow.addEventListener("click", toggleStory);
   lightboxDownload.addEventListener("click", downloadCurrentPhoto);
+  lightboxShare.addEventListener("click", shareCurrentPhoto);
+  lightboxLike.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleLike();
+  });
   lightbox.addEventListener("click", (e) => {
     if (e.target === lightbox) closeLightbox();
   });
   document.addEventListener("keydown", (e) => {
     if (!lightbox.classList.contains("open")) return;
     if (e.key === "Escape") closeLightbox();
-    if (e.key === "ArrowLeft") openLightbox(lightboxIndex - 1);
-    if (e.key === "ArrowRight") openLightbox(lightboxIndex + 1);
-    if (e.key.toLowerCase() === "s") toggleSlideshow();
+    if (e.key === "ArrowLeft") goToPhoto(lightboxIndex - 1);
+    if (e.key === "ArrowRight") goToPhoto(lightboxIndex + 1);
+    if (e.key.toLowerCase() === "s") toggleStory();
+    if (e.key === " ") {
+      e.preventDefault();
+      toggleStory();
+    }
+  });
+
+  /* ---------- Likes ---------- */
+  function currentPhotoId() {
+    const card = visibleCards()[lightboxIndex];
+    return card && card._record ? card._record.id : null;
+  }
+
+  function updateLikeState() {
+    const id = currentPhotoId();
+    const likes = loadLikes();
+    const entry = id ? likes[id] : null;
+    const n = entry ? entry.count : 0;
+    lightboxLikes.textContent = n > 999 ? (n / 1000).toFixed(1) + "k" : String(n);
+    lightboxLike.classList.toggle("liked", !!(entry && entry.liked));
+  }
+
+  function toggleLike() {
+    const id = currentPhotoId();
+    if (!id) return;
+    const likes = loadLikes();
+    const entry = likes[id] || { count: 0, liked: false };
+    entry.liked = !entry.liked;
+    entry.count += entry.liked ? 1 : -1;
+    if (entry.count < 0) entry.count = 0;
+    likes[id] = entry;
+    saveLikes(likes);
+    updateLikeState();
+    if (entry.liked) likeBurst();
+  }
+
+  function likeBurst() {
+    const HEART =
+      '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>';
+    for (let i = 0; i < 12; i++) {
+      const h = document.createElement("span");
+      h.className = "burst-heart";
+      h.innerHTML = HEART;
+      h.style.left = 50 + (Math.random() * 56 - 28) + "%";
+      h.style.fontSize = 18 + Math.random() * 24 + "px";
+      h.style.animationDelay = Math.random() * 0.3 + "s";
+      lightboxBurst.appendChild(h);
+      setTimeout(() => h.remove(), 1700);
+    }
+  }
+
+  /* ---------- Share + deep link ---------- */
+  async function shareCurrentPhoto() {
+    const id = currentPhotoId();
+    const url = id
+      ? location.origin + location.pathname + "#photo=" + id
+      : location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Link copied");
+    } catch (_) {
+      window.prompt("Copy the link", url);
+    }
+  }
+
+  function openFromHash() {
+    const m = /#photo=([0-9a-f-]+)/i.exec(location.hash);
+    if (!m) return;
+    const idx = visibleCards().findIndex((c) => c._record && c._record.id === m[1]);
+    if (idx !== -1) {
+      openLightbox(idx);
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  }
+
+  /* ---------- Touch: swipe + double-tap ---------- */
+  let touchStartX = 0;
+  let lastTap = 0;
+  lightboxImgWrap.addEventListener("touchstart", (e) => {
+    touchStartX = e.touches[0].clientX;
+    pauseStory();
+  }, { passive: true });
+  lightboxImgWrap.addEventListener("touchend", (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) {
+      if (dx < 0) goToPhoto(lightboxIndex + 1);
+      else goToPhoto(lightboxIndex - 1);
+    } else {
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        toggleLike();
+        lastTap = 0;
+      } else {
+        lastTap = now;
+      }
+    }
+    playStory();
+  }, { passive: true });
+  lightboxImgWrap.addEventListener("mousedown", pauseStory);
+  lightboxImgWrap.addEventListener("mouseup", () => setTimeout(playStory, 260));
+  lightboxImgWrap.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    toggleLike();
+  });
+
+  /* ---------- Music pill ---------- */
+  function updateMusicPill() {
+    if (!musicOn || !musicTracks.length) {
+      lightboxMusic.hidden = true;
+      return;
+    }
+    lightboxMusicLabel.textContent = trackLabel(musicTracks[musicTrackIndex]);
+    lightboxMusic.hidden = false;
+    lightboxMusic.classList.toggle("playing", musicOn);
+  }
+  lightboxMusic.addEventListener("click", () => {
+    if (musicOn) pauseMusic();
+    else playMusic();
+    setTimeout(updateMusicPill, 80);
   });
 
   async function downloadCurrentPhoto() {
@@ -565,7 +776,7 @@
   function closeDateModal() {
     dateModal.classList.remove("open");
     dateModal.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
+    document.body.style.overflow = lightbox.classList.contains("open") ? "hidden" : "";
   }
 
   lightboxEditDate.addEventListener("click", openDateModal);
@@ -1642,6 +1853,7 @@
         musicBtn.classList.add("playing");
         musicBtn.setAttribute("aria-label", "Pause music");
         setNowPlaying();
+        updateMusicPill();
       });
     if (!musicTracks.length) {
       initMusicTracks().then(attempt).catch((err) => {
@@ -1662,6 +1874,7 @@
     musicBtn.classList.remove("playing");
     musicBtn.setAttribute("aria-label", "Play our song");
     musicNow.hidden = true;
+    updateMusicPill();
   }
 
   musicAudio.addEventListener("ended", () => {
@@ -1670,6 +1883,7 @@
     musicAudio.src = musicTracks[musicTrackIndex];
     musicAudio.play().catch(() => {});
     setNowPlaying();
+    updateMusicPill();
   });
   musicAudio.addEventListener("error", () => {
     if (musicOn) showToast("Could not load the music file");
@@ -1686,6 +1900,7 @@
     if (musicOn) {
       musicAudio.play().catch(() => {});
       setNowPlaying();
+      updateMusicPill();
     }
   });
   musicBtn.title = "Play our song";
@@ -2102,4 +2317,5 @@
   loadVideos();
   subscribeToVideos();
   initNotes();
+  setTimeout(openFromHash, 1200);
 })();

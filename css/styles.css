@@ -947,7 +947,7 @@ section {
   background:
     radial-gradient(700px 500px at 50% 38%, rgba(224, 82, 122, 0.18), transparent 65%),
     radial-gradient(900px 600px at 12% 88%, rgba(185, 138, 94, 0.12), transparent 60%),
-    rgba(24, 6, 14, 0.95);
+    rgba(10, 3, 7, 0.96);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   display: flex;
@@ -965,25 +965,129 @@ section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: min(92vw, 1000px);
-  max-height: 88vh;
-  text-align: center;
+  margin: 0;
   transform: translateY(12px) scale(0.96);
   transition: transform 0.45s var(--ease);
 }
 .lightbox.open .lightbox-figure {
   transform: translateY(0) scale(1);
 }
-.lightbox-figure img {
-  width: auto;
-  max-width: 100%;
-  max-height: 64vh;
-  object-fit: contain;
-  border-radius: 18px;
+.lightbox-img-wrap {
+  position: relative;
+  width: min(84vw, 880px);
+  height: min(72vh, 720px);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
   box-shadow: 0 34px 90px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
-.lightbox-figure figcaption {
-  margin-top: 26px;
+.lightbox-img-wrap::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 46%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+.lightbox-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.lightbox-img-wrap img.swapping {
+  opacity: 0;
+  transform: scale(1.04);
+}
+@keyframes kb-zoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+@keyframes kb-pan-left {
+  from { transform: scale(1.12) translateX(2.5%); }
+  to { transform: scale(1.12) translateX(-2.5%); }
+}
+@keyframes kb-pan-right {
+  from { transform: scale(1.12) translateX(-2.5%); }
+  to { transform: scale(1.12) translateX(2.5%); }
+}
+@keyframes kb-zoom-out {
+  from { transform: scale(1.14); }
+  to { transform: scale(1.02); }
+}
+.lightbox-img-wrap img.kb-zoom { animation: kb-zoom 18s var(--ease) forwards; }
+.lightbox-img-wrap img.kb-pan-left { animation: kb-pan-left 20s var(--ease) forwards; transform-origin: center; }
+.lightbox-img-wrap img.kb-pan-right { animation: kb-pan-right 20s var(--ease) forwards; transform-origin: center; }
+.lightbox-img-wrap img.kb-zoom-out { animation: kb-zoom-out 16s var(--ease) forwards; }
+
+/* story progress bars */
+.lightbox-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 6px;
+  padding: 14px 18px 0;
+  z-index: 8;
+}
+.lbp-seg {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border: none;
+  padding: 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  overflow: hidden;
+}
+.lbp-seg:hover {
+  background: rgba(255, 255, 255, 0.34);
+}
+.lbp-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ffb3c8, #ff5f8f);
+}
+.lbp-seg.done .lbp-fill {
+  width: 100%;
+}
+.lbp-seg.active .lbp-fill {
+  animation: lbp-fill var(--story-duration, 6000ms) linear forwards;
+}
+.lightbox.paused .lbp-seg.active .lbp-fill {
+  animation-play-state: paused;
+}
+@keyframes lbp-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+/* caption overlay */
+.lightbox-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  width: min(76vw, 720px);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+}
+.lightbox-caption.anim > * {
+  animation: lb-caption 0.7s var(--ease) both;
+}
+.lightbox-caption.anim > *:nth-child(2) { animation-delay: 0.08s; }
+.lightbox-caption.anim > *:nth-child(3) { animation-delay: 0.16s; }
+.lightbox-caption.anim > *:nth-child(4) { animation-delay: 0.24s; }
+@keyframes lb-caption {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .lightbox-category {
   display: inline-flex;
@@ -1006,40 +1110,119 @@ section {
 }
 .lightbox-title {
   font-family: var(--font-script);
-  font-size: clamp(34px, 5.5vw, 50px);
+  font-size: clamp(30px, 4.5vw, 46px);
   line-height: 1.15;
   font-weight: 400;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   background: linear-gradient(135deg, #ffd1de, #ff9eb8 45%, #ffd9a8);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 6px 24px rgba(224, 82, 122, 0.4));
   max-width: 720px;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.5);
 }
 .lightbox-date {
   margin-top: 10px;
-  font-size: 12px;
+  font-size: 11.5px;
   letter-spacing: 3.5px;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
 }
 .lightbox-desc {
   margin: 12px auto 0;
   max-width: 560px;
   font-family: var(--font-serif);
   font-style: italic;
-  font-size: 17.5px;
+  font-size: 17px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
 }
 .lightbox-desc:empty {
   display: none;
 }
 
-.lightbox-btn {
+/* bottom bar */
+.lightbox-bottom {
   position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 6;
+}
+.lightbox-music {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  transition: background 0.3s;
+}
+.lightbox-music:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.eq i {
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffd1de, #ff5f8f);
+  animation: eq-bounce 1s ease-in-out infinite;
+}
+.eq i:nth-child(1) { height: 6px; }
+.eq i:nth-child(2) { height: 13px; animation-delay: 0.15s; }
+.eq i:nth-child(3) { height: 9px; animation-delay: 0.3s; }
+.eq i:nth-child(4) { height: 12px; animation-delay: 0.45s; }
+@keyframes eq-bounce {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1.15); }
+}
+.lightbox-music.playing .eq i {
+  animation-play-state: running;
+}
+.lightbox-music .eq i {
+  animation-play-state: paused;
+}
+.lb-music-label {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lightbox-counter {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  letter-spacing: 1px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 9px 18px;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+
+/* buttons */
+.lightbox-btn {
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: #fff;
@@ -1059,54 +1242,100 @@ section {
   box-shadow: 0 10px 30px rgba(224, 82, 122, 0.45);
 }
 .lightbox-close {
+  position: absolute;
   top: 26px;
   right: 26px;
   width: 46px;
   height: 46px;
   font-size: 26px;
   line-height: 1;
+  z-index: 9;
 }
 .lightbox-prev,
 .lightbox-next {
+  position: absolute;
   top: 50%;
   transform: translateY(-50%);
   width: 54px;
   height: 54px;
   font-size: 32px;
+  z-index: 7;
 }
 .lightbox-prev { left: 28px; }
 .lightbox-next { right: 28px; }
 .lightbox-prev:hover { transform: translateY(-50%) translateX(-4px) scale(1.1); }
 .lightbox-next:hover { transform: translateY(-50%) translateX(4px) scale(1.1); }
-.lightbox-extra {
+
+/* right action rail (TikTok style) */
+.lightbox-rail {
   position: absolute;
-  bottom: 26px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 26px;
+  bottom: 96px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
+  z-index: 6;
 }
-.lightbox-counter {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 13.5px;
-  letter-spacing: 1px;
-  font-weight: 500;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  padding: 9px 20px;
-  border-radius: 999px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+.rail-btn {
+  position: static;
+  width: 52px;
+  height: 52px;
+  flex-direction: column;
+  gap: 4px;
 }
-.lightbox-download {
+.rail-btn svg {
+  width: 22px;
+  height: 22px;
+}
+.rail-count {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #fff;
+  min-height: 14px;
+}
+.lightbox-like {
+  color: #fff;
+}
+#lightboxLike.liked svg {
+  fill: #ff3b6b;
+  stroke: #ff3b6b;
+  animation: like-pop 0.45s var(--ease);
+}
+@keyframes like-pop {
+  0% { transform: scale(0.6); }
+  55% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* floating hearts burst */
+.lightbox-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  overflow: hidden;
+}
+.burst-heart {
+  position: absolute;
+  bottom: 42%;
+  color: #ff4d79;
+  opacity: 0;
+  animation: heart-float 1.5s ease-out forwards;
+  filter: drop-shadow(0 4px 14px rgba(255, 61, 107, 0.55));
+}
+@keyframes heart-float {
+  0% { opacity: 0; transform: translateY(0) scale(0.4); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-260px) scale(1.25) rotate(14deg); }
+}
+
+.lightbox-slideshow {
   position: static;
   width: 44px;
   height: 44px;
-}
-.lightbox-download svg {
-  width: 19px;
-  height: 19px;
+  font-size: 15px;
 }
 .lightbox-hints {
   position: absolute;
@@ -1213,6 +1442,36 @@ section {
   }
   .lightbox-prev { left: 14px; }
   .lightbox-next { right: 14px; }
+  .lightbox-rail {
+    right: 14px;
+    bottom: 110px;
+    gap: 14px;
+  }
+  .rail-btn {
+    width: 46px;
+    height: 46px;
+  }
+  .lightbox-img-wrap {
+    width: min(80vw, 720px);
+    height: min(64vh, 620px);
+  }
+  .lightbox-caption {
+    bottom: 92px;
+    width: min(70vw, 560px);
+  }
+  .lightbox-title {
+    font-size: clamp(26px, 5vw, 36px);
+  }
+  .lightbox-music .lb-music-label {
+    display: none;
+  }
+  .lightbox-bottom {
+    gap: 12px;
+  }
+  .lightbox-counter {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 560px) {
