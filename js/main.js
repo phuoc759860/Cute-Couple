@@ -384,6 +384,8 @@
   const lightboxNext = $("#lightboxNext");
   const lightboxSlideshow = $("#lightboxSlideshow");
   const lightboxProgress = $("#lightboxProgress");
+  const modePhotoBtn = $("#modePhotoBtn");
+  const modeStoryBtn = $("#modeStoryBtn");
   const lightboxMusic = $("#lightboxMusic");
   const lightboxMusicLabel = $("#lightboxMusicLabel");
   const lightboxBurst = $("#lightboxBurst");
@@ -392,6 +394,11 @@
   let lightboxPlaying = false;
   const STORY_DURATION = 6000;
   const KENBURNS = ["kb-zoom", "kb-pan-left", "kb-pan-right", "kb-zoom-out"];
+  const LIGHTBOX_MODE_KEY = "lc-lb-mode";
+  let lightboxMode = "story";
+  try {
+    lightboxMode = localStorage.getItem(LIGHTBOX_MODE_KEY) === "photo" ? "photo" : "story";
+  } catch (_) {}
 
   const CATEGORY_LABELS = {
     all: "All",
@@ -460,8 +467,38 @@
   }
 
   function toggleStory() {
+    if (lightboxMode !== "story") {
+      applyMode("story");
+      return;
+    }
     if (lightboxPlaying) pauseStory();
     else playStory();
+  }
+
+  function applyMode(mode) {
+    lightboxMode = mode;
+    try {
+      localStorage.setItem(LIGHTBOX_MODE_KEY, mode);
+    } catch (_) {}
+    const isStory = mode === "story";
+    modePhotoBtn.setAttribute("aria-pressed", String(!isStory));
+    modeStoryBtn.setAttribute("aria-pressed", String(isStory));
+    lightbox.classList.toggle("story-mode", isStory);
+    if (isStory) {
+      lightboxPlaying = true;
+      lightbox.classList.remove("paused");
+      lightboxSlideshow.innerHTML = "&#10074;&#10074;";
+      lightboxSlideshow.setAttribute("aria-label", "Pause");
+      lightboxSlideshow.title = "Pause";
+      applyKenBurns();
+    } else {
+      lightboxPlaying = false;
+      lightbox.classList.add("paused");
+      lightboxSlideshow.innerHTML = "&#9654;";
+      lightboxSlideshow.setAttribute("aria-label", "Play");
+      lightboxSlideshow.title = "Play";
+      KENBURNS.forEach((c) => lightboxImg.classList.remove(c));
+    }
   }
 
   lightboxProgress.addEventListener("animationend", (e) => {
@@ -477,6 +514,7 @@
   /* ---------- Ken Burns + caption animation ---------- */
   function applyKenBurns() {
     KENBURNS.forEach((c) => lightboxImg.classList.remove(c));
+    if (lightboxMode !== "story") return;
     const kb = KENBURNS[Math.floor(Math.random() * KENBURNS.length)];
     void lightboxImg.offsetWidth;
     lightboxImg.classList.add(kb);
@@ -533,7 +571,7 @@
     lightbox.classList.add("open");
     lightbox.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
-    playStory();
+    applyMode(lightboxMode);
   }
 
   function closeLightbox() {
@@ -556,6 +594,8 @@
   lightboxPrev.addEventListener("click", () => goToPhoto(lightboxIndex - 1));
   lightboxNext.addEventListener("click", () => goToPhoto(lightboxIndex + 1));
   lightboxSlideshow.addEventListener("click", toggleStory);
+  modePhotoBtn.addEventListener("click", () => applyMode("photo"));
+  modeStoryBtn.addEventListener("click", () => applyMode("story"));
   lightboxDownload.addEventListener("click", downloadCurrentPhoto);
   lightboxShare.addEventListener("click", shareCurrentPhoto);
   lightboxLike.addEventListener("click", (e) => {

@@ -1068,6 +1068,60 @@ section {
   to { width: 100%; }
 }
 
+/* photo / story mode toggle */
+.lightbox-mode {
+  position: absolute;
+  top: 26px;
+  left: 28px;
+  z-index: 9;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.mode-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s;
+}
+.mode-btn:hover {
+  color: #fff;
+}
+.mode-btn[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(224, 82, 122, 0.45);
+}
+
+/* photo mode: clean full-picture view */
+.lightbox:not(.story-mode) .lightbox-progress {
+  display: none;
+}
+.lightbox:not(.story-mode) .lightbox-img-wrap img {
+  object-fit: contain;
+  animation: none !important;
+  transform: none !important;
+}
+.lightbox:not(.story-mode) .lightbox-img-wrap::after {
+  display: none;
+}
+.lightbox:not(.story-mode) .lightbox-slideshow {
+  display: none;
+}
+
+
 /* caption overlay */
 .lightbox-caption {
   position: absolute;
