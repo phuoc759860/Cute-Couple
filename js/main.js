@@ -310,13 +310,25 @@
   /* ---------- Lightbox ---------- */
   const lightbox = $("#lightbox");
   const lightboxImg = $("#lightboxImg");
-  const lightboxCaption = $("#lightboxCaption");
+  const lightboxTitle = $("#lightboxTitle");
+  const lightboxDesc = $("#lightboxDesc");
+  const lightboxDate = $("#lightboxDate");
+  const lightboxCategory = $("#lightboxCategory");
+  const lightboxCategoryText = $("#lightboxCategoryText");
   const lightboxCounter = $("#lightboxCounter");
   const lightboxDownload = $("#lightboxDownload");
   const lightboxClose = $("#lightboxClose");
   const lightboxPrev = $("#lightboxPrev");
   const lightboxNext = $("#lightboxNext");
   let lightboxIndex = 0;
+
+  const CATEGORY_LABELS = {
+    all: "All",
+    dates: "Dates",
+    travel: "Travel",
+    celebrations: "Celebrations",
+    everyday: "Everyday",
+  };
 
   function openLightbox(index) {
     const visible = visibleCards();
@@ -326,9 +338,14 @@
     const img = $("img", card);
     const title = $(".card-title", card).textContent;
     const desc = $(".card-desc", card).textContent;
+    const date = $(".card-date", card).textContent;
+    const category = card.dataset.category || "everyday";
     lightboxImg.src = img.src;
     lightboxImg.alt = img.alt;
-    lightboxCaption.textContent = desc ? `${title} — ${desc}` : title;
+    lightboxTitle.textContent = title || "Our Memory";
+    lightboxDesc.textContent = desc;
+    lightboxDate.textContent = date;
+    lightboxCategoryText.textContent = CATEGORY_LABELS[category] || category;
     lightboxCounter.textContent = `${clamped + 1} / ${visible.length}`;
     lightbox.classList.add("open");
     lightbox.setAttribute("aria-hidden", "false");
@@ -373,7 +390,7 @@
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const name =
-        (lightboxCaption.textContent || "our-memory")
+        (lightboxTitle.textContent || "our-memory")
           .replace(/[^\w\- ]+/g, "")
           .trim()
           .replace(/\s+/g, "-")
