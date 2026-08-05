@@ -374,11 +374,13 @@
   const lightboxCategoryText = $("#lightboxCategoryText");
   const lightboxCounter = $("#lightboxCounter");
   const lightboxDownload = $("#lightboxDownload");
+  const lightboxEditDate = $("#lightboxEditDate");
   const lightboxClose = $("#lightboxClose");
   const lightboxPrev = $("#lightboxPrev");
   const lightboxNext = $("#lightboxNext");
   const lightboxSlideshow = $("#lightboxSlideshow");
   let lightboxIndex = 0;
+  let lightboxCard = null;
   let slideshowTimer = null;
 
   function stopSlideshow() {
@@ -442,6 +444,8 @@
     lightbox.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
     lightboxIndex = clamped;
+    lightboxCard = card;
+    lightboxEditDate.hidden = !card._record;
   }
 
   function closeLightbox() {
@@ -509,14 +513,21 @@
   const DELETE_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>';
 
+  function formatPhotoDate(record) {
+    const d = record.taken_at
+      ? new Date(record.taken_at + "T00:00:00")
+      : new Date(record.created_at);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+
   function makeSavedCard(record) {
     const fig = document.createElement("figure");
     fig.className = "card";
     fig.dataset.category = record.category || "everyday";
     fig.dataset.savedId = record.id;
-    const dateLabel = record.dateLabel
-      ? record.dateLabel
-      : new Date(record.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    fig._record = record;
+    const dateLabel = record.dateLabel ? record.dateLabel : formatPhotoDate(record);
     fig.innerHTML = `
       <img src="${record.url}" alt="${escapeHtml(record.title)}" loading="lazy" />
       <figcaption class="card-overlay">
@@ -534,6 +545,67 @@
     });
     return fig;
   }
+
+  /* ---------- Edit photo date ---------- */
+  const dateModal = $("#dateModal");
+  const dateModalClose = $("#dateModalClose");
+  const dateCancel = $("#dateCancel");
+  const dateSave = $("#dateSave");
+  const dateEditInput = $("#dateEditInput");
+
+  function openDateModal() {
+    const rec = lightboxCard && lightboxCard._record;
+    if (!rec) return;
+    dateEditInput.value = rec.taken_at || "";
+    dateModal.classList.add("open");
+    dateModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeDateModal() {
+    dateModal.classList.remove("open");
+    dateModal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  lightboxEditDate.addEventListener("click", openDateModal);
+  dateModalClose.addEventListener("click", closeDateModal);
+  dateCancel.addEventListener("click", closeDateModal);
+  dateModal.addEventListener("click", (e) => {
+    if (e.target === dateModal) closeDateModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!dateModal.classList.contains("open")) return;
+    if (e.key === "Escape") closeDateModal();
+  });
+
+  dateSave.addEventListener("click", async () => {
+    const rec = lightboxCard && lightboxCard._record;
+    if (!rec) return;
+    const val = dateEditInput.value || null;
+    dateSave.disabled = true;
+    dateSave.textContent = "Saving...";
+    try {
+      const { error } = await supabase
+        .from("photos")
+        .update({ taken_at: val })
+        .eq("id", rec.id);
+      if (error) throw error;
+      rec.taken_at = val;
+      const label = formatPhotoDate(rec);
+      const dateEl = $(".card-date", lightboxCard);
+      if (dateEl) dateEl.textContent = label;
+      lightboxDate.textContent = label;
+      closeDateModal();
+      showToast("Date updated");
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Could not update the date");
+    } finally {
+      dateSave.disabled = false;
+      dateSave.textContent = "Save Date";
+    }
+  });
 
   async function deletePhoto(record, cardEl) {
     try {
@@ -617,6 +689,7 @@
   const photoTitle = $("#photoTitle");
   const photoDesc = $("#photoDesc");
   const photoCategory = $("#photoCategory");
+  const photoDate = $("#photoDate");
   const uploadProgress = $("#uploadProgress");
   const uploadProgressText = $("#uploadProgressText");
   let pendingDataUrl = null;
@@ -642,6 +715,7 @@
     photoTitle.value = "";
     photoDesc.value = "";
     photoCategory.value = "everyday";
+    photoDate.value = "";
     editor.baseImage = null;
     editor.frame = "none";
     editor.stickers = [];
@@ -801,6 +875,7 @@
           description: photoDesc.value.trim(),
           category: photoCategory.value,
           storage_path: storagePath,
+          taken_at: photoDate.value || null,
         })
         .select()
         .single();

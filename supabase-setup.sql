@@ -11,6 +11,7 @@ create table if not exists public.photos (
   description text default '',
   category text not null default 'everyday',
   storage_path text not null,
+  taken_at date,
   created_at timestamptz not null default now()
 );
 
@@ -21,7 +22,7 @@ on conflict (id) do update set public = true;
 
 -- 3) Grants so the anon (no-login) role can use everything
 grant usage on schema public to anon, authenticated;
-grant select, insert, delete on public.photos to anon, authenticated;
+grant select, insert, update, delete on public.photos to anon, authenticated;
 grant usage on schema storage to anon, authenticated;
 
 -- 4) Row Level Security for the photos table
