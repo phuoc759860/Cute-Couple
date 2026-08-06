@@ -2793,19 +2793,22 @@
       return { sent: true };
     } catch (err) {
       console.error("EmailJS send failed:", err);
-      return { sent: false };
+      return { sent: false, error: (err && (err.message || err.text)) || "EmailJS send error" };
     }
   }
 
   /* When a date is created, email BOTH partners (invitee + a copy to the proposer). */
   async function sendDateEmailToBoth(request) {
     const results = [];
+    let error = "";
     for (const role of ["boyfriend", "girlfriend"]) {
-      results.push(await sendDateEmail({ to: role, request }));
+      const r = await sendDateEmail({ to: role, request });
+      results.push(r);
+      if (r.error && !error) error = r.error;
     }
     if (results.some((r) => r.sent)) return { sent: true };
     if (results.every((r) => r.skipped)) return { sent: false, skipped: true };
-    return { sent: false };
+    return { sent: false, error };
   }
 
   /* ---- Notifications ---- */
@@ -3098,7 +3101,7 @@
       } else if (mail.skipped) {
         showToast("Request sent — email not configured yet");
       } else {
-        showToast("Request sent, but email failed");
+        showToast("Email failed: " + (mail.error || "unknown error"));
       }
     } catch (err) {
       console.error(err);
