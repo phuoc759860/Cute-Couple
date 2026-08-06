@@ -49,7 +49,7 @@ const COUPLE = {
 const EMAILJS = {
   publicKey: "Fpw7xw3DK6ZwvEWL-",
   serviceId: "service_shuk3ib",
-  templateId: "template_mrw2xa1",
+  templateId: "template_bmbo9u9",
   boyfriendEmail: "phuochuynh120@gmail.com",
   girlfriendEmail: "nttmy170505@gmail.com",
 };

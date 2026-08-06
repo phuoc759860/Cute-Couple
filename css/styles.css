@@ -3617,6 +3617,26 @@ body.site-locked {
   gap: 10px;
   margin-bottom: 8px;
 }
+.date-item .di-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.date-item .di-delete {
+  position: static;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(30, 8, 18, 0.15);
+  background: rgba(30, 8, 18, 0.06);
+  opacity: 1;
+  transform: none;
+  color: var(--ink-soft);
+}
+.date-item .di-delete:hover {
+  background: var(--primary);
+  color: #fff;
+}
 .date-item .di-title {
   font-family: var(--font-serif);
   font-size: 19px;

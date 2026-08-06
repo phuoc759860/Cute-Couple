@@ -2968,7 +2968,10 @@
     art.innerHTML = `
       <div class="di-head">
         <h4 class="di-title">${escapeHtml(r.title)}</h4>
-        <span class="di-badge ${r.status}">${r.status}</span>
+        <span class="di-head-actions">
+          <span class="di-badge ${r.status}">${r.status}</span>
+          <button class="card-delete di-delete" type="button" data-delete="${r.id}" aria-label="Delete date">${DELETE_ICON}</button>
+        </span>
       </div>
       <div class="di-rows">${rows}</div>
       <div class="di-meta">
@@ -3047,11 +3050,33 @@
     }
   }
 
+  async function deleteDate(id) {
+    const row = dateRows.find((r) => r.id === id);
+    if (!row || !currentUser) return;
+    if (!confirm(`Delete "${row.title}"? This can't be undone.`)) return;
+    try {
+      const { error } = await supabase.from("date_requests").delete().eq("id", id);
+      if (error) throw error;
+      await pushNotification(
+        row.proposer === currentUser.role
+          ? (currentUser.role === "boyfriend" ? "girlfriend" : "boyfriend")
+          : row.proposer,
+        { type: "date", title: "Date removed", body: `"${row.title}" was removed`, href: "#dates" }
+      );
+      showToast("Date deleted");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not delete the date");
+    }
+  }
+
   [pendingList, upcomingList, historyList].forEach((list) => {
     list.addEventListener("click", (e) => {
+      const del = e.target.closest("[data-delete]");
       const acc = e.target.closest("[data-accept]");
       const dec = e.target.closest("[data-decline]");
-      if (acc) respondToDate(acc.dataset.accept, "accepted");
+      if (del) deleteDate(del.dataset.delete);
+      else if (acc) respondToDate(acc.dataset.accept, "accepted");
       else if (dec) respondToDate(dec.dataset.decline, "declined");
     });
   });
