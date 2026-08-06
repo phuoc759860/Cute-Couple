@@ -47,7 +47,7 @@ const COUPLE = {
    (date requests then show as in-app notifications only).
    ===================================================== */
 const EMAILJS = {
-  publicKey: "",
+  publicKey: "Fpw7xw3DK6ZwvEWL-",
   serviceId: "service_shuk3ib",
   templateId: "template_p1lznbp",
   boyfriendEmail: "phuochuynh120@gmail.com",
