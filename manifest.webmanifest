@@ -1,0 +1,33 @@
+{
+  "name": "Our Love Album — Forever Together",
+  "short_name": "Our Love",
+  "description": "Our love story — a beautiful collection of our favorite memories together.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff7f9",
+  "theme_color": "#e0527a",
+  "lang": "en",
+  "categories": ["lifestyle", "social"],
+  "icons": [
+    {
+      "src": "images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

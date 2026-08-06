@@ -2,10 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Our love story — a beautiful collection of our favorite memories together." />
+  <meta name="theme-color" content="#e0527a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Our Love" />
+  <meta name="format-detection" content="telephone=no" />
   <title>Our Love Album — Forever Together</title>
   <link rel="icon" href="images/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="images/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -229,6 +237,15 @@
       <div class="time-box"><span class="time-value" id="cdHours">00</span><span class="time-label">Hours</span></div>
       <div class="time-box"><span class="time-value" id="cdMinutes">00</span><span class="time-label">Minutes</span></div>
       <div class="time-box"><span class="time-value" id="cdSeconds">00</span><span class="time-label">Seconds</span></div>
+    </div>
+    <div class="anniversary">
+      <p class="anniversary-eyebrow">Our next milestone</p>
+      <h3 class="anniversary-title" id="anniversaryTitle">Our Anniversary</h3>
+      <p class="anniversary-date" id="anniversaryDate"></p>
+      <div class="anniversary-meta">
+        <span class="anniversary-pill"><strong id="annivDays">0</strong> days to go</span>
+        <span class="anniversary-pill"><strong id="annivTogether">0</strong> days together</span>
+      </div>
     </div>
   </section>
 
@@ -499,6 +516,59 @@
 
   <!-- Confetti canvas (celebrations) -->
   <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+
+  <!-- Back to top -->
+  <button class="back-top" id="backTop" type="button" aria-label="Back to top" title="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>
+  </button>
+
+  <!-- Offline banner -->
+  <div class="online-banner" id="onlineBanner" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 12.5a9 9 0 0 1 11.5-1"/><path d="M2 8.8a13 13 0 0 1 20 0"/><circle cx="12" cy="20" r="1.2" fill="currentColor"/></svg>
+    <span id="onlineBannerText">You're offline — showing saved memories</span>
+  </div>
+
+  <!-- Install app prompt -->
+  <div class="install-card" id="installCard" aria-hidden="true">
+    <div class="install-card-icon"><img src="images/icon-192.png" alt="" /></div>
+    <div class="install-card-body">
+      <p class="install-card-title">Put us on your home screen</p>
+      <p class="install-card-sub">Install Our Love Album to open it like an app, even offline.</p>
+    </div>
+    <div class="install-card-actions">
+      <button class="btn btn-primary" id="installAppBtn" type="button">Install</button>
+      <button class="install-dismiss" id="installDismiss" type="button" aria-label="Dismiss">&times;</button>
+    </div>
+  </div>
+
+  <!-- Mobile bottom navigation -->
+  <nav class="bottom-navbar" id="bottomNavbar" aria-label="Quick navigation">
+    <button class="b bnav-item active" type="button" data-target="home" aria-label="Home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="b bnav-item" type="button" data-target="gallery" aria-label="Gallery">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4.5-4.5L8 19"/></svg>
+      <span>Gallery</span>
+    </button>
+    <button class="b bnav-item" type="button" data-target="videos" aria-label="Videos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 8 6 4-6 4V8z"/><path d="M3 6a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"/></svg>
+      <span>Videos</span>
+    </button>
+    <span class="bnav-spacer"><button class="bnav-music" id="bnavMusic" type="button" aria-label="Play our song" title="Play our song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button></span>
+    <button class="b bnav-item" type="button" data-target="story" aria-label="Our Story">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+      <span>Story</span>
+    </button>
+    <button class="b bnav-item" type="button" data-target="countdown" aria-label="Countdown">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
+      <span>Count</span>
+    </button>
+    <button class="b bnav-item" type="button" data-target="messages" aria-label="Love Notes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3c-1.2 0-2.4-.2-3.5-.6L3 21l1.8-4.4a8.4 8.4 0 1 1 16.2-5.1z"/></svg>
+      <span>Love</span>
+    </button>
+  </nav>
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>

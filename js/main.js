@@ -49,6 +49,9 @@
     navLinks.forEach((l) => {
       l.classList.toggle("active", l.getAttribute("href") === `#${current}`);
     });
+    $$(".bottom-navbar .bnav-item").forEach((b) => {
+      b.classList.toggle("active", b.dataset.target === current);
+    });
   }
 
   /* ---------- Mobile menu ---------- */
@@ -664,9 +667,24 @@
   /* ---------- Share + deep link ---------- */
   async function shareCurrentPhoto() {
     const id = currentPhotoId();
+    const card = visibleCards()[lightboxIndex];
     const url = id
       ? location.origin + location.pathname + "#photo=" + id
       : location.href;
+    const title = card && card._record ? card._record.title : "Our Love Album";
+    // Native share sheet on mobile first.
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text: title || "A memory from our album",
+          url,
+        });
+        return;
+      } catch (_) {
+        /* user cancelled or share failed → fall back to copy */
+      }
+    }
     try {
       await navigator.clipboard.writeText(url);
       showToast("Link copied");
@@ -1892,6 +1910,8 @@
         musicOn = true;
         musicBtn.classList.add("playing");
         musicBtn.setAttribute("aria-label", "Pause music");
+        const b = $("#bnavMusic");
+        if (b) b.classList.add("playing");
         setNowPlaying();
         updateMusicPill();
       });
@@ -1914,6 +1934,8 @@
     musicBtn.classList.remove("playing");
     musicBtn.setAttribute("aria-label", "Play our song");
     musicNow.hidden = true;
+    const b = $("#bnavMusic");
+    if (b) b.classList.remove("playing");
     updateMusicPill();
   }
 
@@ -2349,6 +2371,150 @@
     if (!videoViewer.classList.contains("open")) return;
     if (e.key === "Escape") closeVideoViewer();
   });
+
+  /* ---------- Back to top ---------- */
+  const backTop = $("#backTop");
+  if (backTop) {
+    const updateBackTop = () => backTop.classList.toggle("show", window.scrollY > 600);
+    window.addEventListener("scroll", updateBackTop, { passive: true });
+    backTop.addEventListener("click", () =>
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    );
+  }
+
+  /* ---------- Offline / online banner ---------- */
+  const onlineBanner = $("#onlineBanner");
+  function setOnlineState() {
+    if (!onlineBanner) return;
+    const offline = !navigator.onLine;
+    onlineBanner.classList.toggle("show", offline);
+    if (!offline && !setOnlineState._wasOffline) return;
+    if (!offline) showToast("You're back online");
+    setOnlineState._wasOffline = offline;
+  }
+  window.addEventListener("online", setOnlineState);
+  window.addEventListener("offline", setOnlineState);
+  setOnlineState();
+
+  /* ---------- Bottom navigation (mobile) ---------- */
+  const bnavItems = $$(".bottom-navbar .bnav-item");
+  const bnavMusic = $("#bnavMusic");
+  bnavItems.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const el = document.getElementById(btn.dataset.target);
+      if (!el) return;
+      const y = el.getBoundingClientRect().top + window.scrollY - 78;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    });
+  });
+  if (bnavMusic) {
+    bnavMusic.addEventListener("click", () => {
+      if (musicOn) pauseMusic();
+      else playMusic();
+    });
+  }
+  /* Hide bottom nav while the on-screen keyboard is open */
+  if (window.visualViewport) {
+    const onVP = () => {
+      const kbOpen = window.visualViewport.height < window.innerHeight * 0.72;
+      document.body.classList.toggle("ime-open", kbOpen);
+    };
+    window.visualViewport.addEventListener("resize", onVP);
+    window.visualViewport.addEventListener("scroll", onVP);
+  }
+
+  /* ---------- Install app (PWA) ---------- */
+  const installCard = $("#installCard");
+  const installAppBtn = $("#installAppBtn");
+  const installDismiss = $("#installDismiss");
+  let deferredInstall = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstall = e;
+    if (installCard && !localStorage.getItem("love-install-dismissed")) {
+      installCard.classList.add("show");
+      installCard.setAttribute("aria-hidden", "false");
+    }
+  });
+  window.addEventListener("appinstalled", () => {
+    if (installCard) installCard.classList.remove("show");
+    localStorage.setItem("love-install-dismissed", "1");
+    showToast("Installed — find us on your home screen");
+  });
+  if (installAppBtn) {
+    installAppBtn.addEventListener("click", async () => {
+      if (!deferredInstall) {
+        showToast("Add our page to your home screen from the browser menu");
+        return;
+      }
+      deferredInstall.prompt();
+      await deferredInstall.userChoice.catch(() => {});
+      deferredInstall = null;
+      if (installCard) installCard.classList.remove("show");
+      localStorage.setItem("love-install-dismissed", "1");
+    });
+  }
+  if (installDismiss) {
+    installDismiss.addEventListener("click", () => {
+      if (installCard) installCard.classList.remove("show");
+      localStorage.setItem("love-install-dismissed", "1");
+    });
+  }
+
+  /* ---------- Service worker (offline app shell) ---------- */
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+
+  /* ---------- Anniversary / next milestone widget ---------- */
+  const annivTitle = $("#anniversaryTitle");
+  const annivDate = $("#anniversaryDate");
+  const annivDays = $("#annivDays");
+  const annivTogether = $("#annivTogether");
+  if (annivTitle) {
+    const baseDate = new Date(TOGETHER_DATE);
+    const fmt = new Intl.DateTimeFormat(undefined, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    function addMonthsSafe(d, months) {
+      const y = d.getFullYear();
+      const m = d.getMonth() + months;
+      const ny = y + Math.floor(m / 12);
+      const nm = ((m % 12) + 12) % 12;
+      const nd = new Date(ny, nm, 1);
+      nd.setDate(Math.min(d.getDate(), new Date(ny, nm + 1, 0).getDate()));
+      nd.setHours(0, 0, 0, 0);
+      return nd;
+    }
+    const now = Date.now();
+    const candidates = [];
+    for (let i = 1; i <= 11; i++) {
+      const t = addMonthsSafe(baseDate, i).getTime();
+      if (t > now) candidates.push({ t, label: i === 1 ? "1 Month" : i + " Months" });
+    }
+    for (let i = 1; i <= 3; i++) {
+      const t = addMonthsSafe(baseDate, i * 12).getTime();
+      if (t > now) candidates.push({ t, label: i === 1 ? "1 Year" : i + " Years" });
+    }
+    candidates.sort((a, b) => a.t - b.t);
+    const next = candidates[0];
+    if (next) {
+      const refresh = () => {
+        const daysTo = Math.max(0, Math.ceil((next.t - Date.now()) / 86400000));
+        const daysTogether = Math.max(0, Math.floor((Date.now() - TOGETHER_DATE) / 86400000));
+        annivTitle.textContent = next.label + " Anniversary";
+        annivDate.textContent = fmt.format(new Date(next.t));
+        annivDays.textContent = daysTo;
+        annivTogether.textContent = daysTogether;
+      };
+      refresh();
+      setInterval(refresh, 10 * 60 * 1000);
+    }
+  }
 
   /* ---------- Init ---------- */
   initGalleryCards();
