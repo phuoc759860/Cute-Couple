@@ -555,6 +555,8 @@
   const lightboxMusic = $("#lightboxMusic");
   const lightboxMusicLabel = $("#lightboxMusicLabel");
   const lightboxBurst = $("#lightboxBurst");
+  const lightboxFullscreen = $("#lightboxFullscreen");
+  const lightboxFilmstrip = $("#lightboxFilmstrip");
   let lightboxIndex = 0;
   let lightboxCard = null;
   let lightboxPlaying = false;
@@ -724,6 +726,14 @@
     lightboxCard = card;
     lightboxEditDate.hidden = !card._record;
     setActiveProgress(clamped);
+    if (lightboxFilmstrip && !lightboxFilmstrip.hidden) {
+      Array.from(lightboxFilmstrip.children).forEach((th, i) => {
+        th.classList.toggle("active", i === clamped);
+      });
+      lightboxFilmstrip.querySelector(".active")?.scrollIntoView({
+        behavior: "smooth", block: "nearest", inline: "nearest",
+      });
+    }
     updateLikeState();
     updateMusicPill();
     restartCaptionAnim();
@@ -733,6 +743,7 @@
     const visible = visibleCards();
     if (!visible.length) return;
     renderProgressBars(visible.length);
+    renderFilmstrip();
     goToPhoto(index);
     lightbox.classList.add("open");
     lightbox.setAttribute("aria-hidden", "false");
@@ -742,9 +753,58 @@
 
   function closeLightbox() {
     pauseStory();
+    exitLightboxFullscreen();
     lightbox.classList.remove("open");
     lightbox.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
+  }
+
+  function toggleLightboxFullscreen() {
+    if (!document.fullscreenEnabled) {
+      showToast("Fullscreen isn't available on this browser");
+      return;
+    }
+    try {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        lightbox.requestFullscreen();
+      }
+    } catch (_) {}
+  }
+
+  function exitLightboxFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  function renderFilmstrip() {
+    const visible = visibleCards();
+    if (!lightboxFilmstrip) return;
+    if (visible.length <= 8) {
+      lightboxFilmstrip.hidden = true;
+      return;
+    }
+    lightboxFilmstrip.hidden = false;
+    lightboxFilmstrip.innerHTML = "";
+    visible.forEach((card, i) => {
+      const img = $("img", card);
+      const thumb = document.createElement("button");
+      thumb.type = "button";
+      thumb.className = "filmstrip-item" + (i === lightboxIndex ? " active" : "");
+      thumb.setAttribute("aria-label", "Go to photo " + (i + 1));
+      const im = document.createElement("img");
+      im.src = img.src;
+      im.alt = "";
+      im.loading = "lazy";
+      thumb.appendChild(im);
+      thumb.addEventListener("click", (e) => {
+        e.stopPropagation();
+        goToPhoto(i);
+      });
+      lightboxFilmstrip.appendChild(thumb);
+    });
   }
 
   function bindCard(card) {
@@ -764,6 +824,10 @@
   modeStoryBtn.addEventListener("click", () => applyMode("story"));
   lightboxDownload.addEventListener("click", downloadCurrentPhoto);
   lightboxShare.addEventListener("click", shareCurrentPhoto);
+  lightboxFullscreen.addEventListener("click", toggleLightboxFullscreen);
+  document.addEventListener("fullscreenchange", () => {
+    lightboxFullscreen.classList.toggle("active", !!document.fullscreenElement);
+  });
   lightboxLike.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleLike();
@@ -781,6 +845,9 @@
       e.preventDefault();
       toggleStory();
     }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !notifPanel.hidden) closeNotifPanel();
   });
 
   /* ---------- Likes ---------- */
@@ -1341,6 +1408,7 @@
   const frameOptions = $("#frameOptions");
   const stickerGrid = $("#stickerGrid");
   const stickerSizeEl = $("#stickerSize");
+  const stickerRotateEl = $("#stickerRotate");
   const removeStickerBtn = $("#removeStickerBtn");
   const textInput = $("#textInput");
   const textFont = $("#textFont");
@@ -1588,6 +1656,7 @@
       }
       el.style.left = `${(s.x * 100).toFixed(3)}%`;
       el.style.top = `${(s.y * 100).toFixed(3)}%`;
+      if (s.rot) el.style.transform = `translate(-50%, -50%) rotate(${s.rot}deg)`;
       stickerLayer.appendChild(el);
     });
   }
@@ -1650,6 +1719,7 @@
     const s = editor.stickers[index];
     if (s) {
       stickerSizeEl.value = Math.round(s.size * 100);
+      stickerRotateEl.value = s.rot || 0;
       removeStickerBtn.disabled = false;
     }
   }
@@ -1734,6 +1804,13 @@
     const s = editor.stickers[editor.selected];
     if (!s) return;
     s.size = parseInt(stickerSizeEl.value, 10) / 100;
+    renderStickerOverlays();
+  });
+
+  stickerRotateEl.addEventListener("input", () => {
+    const s = editor.stickers[editor.selected];
+    if (!s) return;
+    s.rot = parseInt(stickerRotateEl.value, 10) || 0;
     renderStickerOverlays();
   });
 
@@ -1822,13 +1899,19 @@
         let dh = box;
         if (ar > 1) dh = box / ar;
         else dw = box * ar;
-        ctx.drawImage(img, s.x * base.w - dw / 2, s.y * base.h - dh / 2, dw, dh);
+        ctx.save();
+        ctx.translate(s.x * base.w, s.y * base.h);
+        if (s.rot) ctx.rotate((s.rot * Math.PI) / 180);
+        ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+        ctx.restore();
         continue;
       }
       const px = Math.max(6, s.size * base.w);
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      ctx.translate(s.x * base.w, s.y * base.h);
+      if (s.rot) ctx.rotate((s.rot * Math.PI) / 180);
       if (s.type === "text") {
         ctx.font = `${px}px ${s.font}`;
         ctx.fillStyle = s.color;
@@ -1838,7 +1921,7 @@
       } else {
         ctx.font = `${px}px ${EMOJI_FONT}`;
       }
-      ctx.fillText(s.content, s.x * base.w, s.y * base.h);
+      ctx.fillText(s.content, 0, 0);
       ctx.restore();
     }
 
@@ -2691,6 +2774,7 @@
   const datePlace = $("#datePlace");
   const dateNote = $("#dateNote");
   const dateSend = $("#dateSend");
+  const surpriseDateBtn = $("#surpriseDateBtn");
   const dateSentNote = $("#dateSentNote");
   const dateImportanceWrap = $("#dateImportance");
   const pendingList = $("#pendingList");
@@ -2856,12 +2940,18 @@
         <span class="n-title">${escapeHtml(n.title)}<span class="n-dot"></span></span>
         <span class="n-text">${escapeHtml(n.body)}</span>
         <span class="n-time">${notifTimeLabel(n.created_at)}</span>
-      </span>`;
-    btn.addEventListener("click", () => {
+      </span>
+      <button class="n-x" type="button" aria-label="Delete notification" title="Delete">&times;</button>`;
+    btn.addEventListener("click", (e) => {
+      if (e.target.closest(".n-x")) return;
       markNotifRead(n.id);
       closeNotifPanel();
       const target = document.querySelector(n.href);
       if (target) target.scrollIntoView({ behavior: "smooth" });
+    });
+    $(".n-x", btn).addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteNotif(n.id);
     });
     return btn;
   }
@@ -2873,6 +2963,14 @@
       await supabase.from("notifications").update({ read: true }).eq("id", id);
     } catch (_) {}
     if (row) row.read = true;
+    renderNotifications();
+  }
+
+  async function deleteNotif(id) {
+    try {
+      await supabase.from("notifications").delete().eq("id", id);
+    } catch (_) {}
+    notifRows = notifRows.filter((r) => r.id !== id);
     renderNotifications();
   }
 
@@ -2945,10 +3043,12 @@
     const when = new Date(r.date_time);
     const daysTo = Math.ceil((when.getTime() - Date.now()) / 86400000);
     const count =
-      r.status === "accepted" && daysTo >= 0
-        ? `<span class="di-count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${
+      r.status !== "declined" && daysTo >= 0
+        ? `<span class="di-count ${r.status === "pending" ? "di-count-waiting" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${
             daysTo === 0 ? "Today" : daysTo === 1 ? "Tomorrow" : daysTo + "d"
           }</span>`
+        : daysTo < 0
+        ? `<span class="di-count di-count-past"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${Math.abs(daysTo) + "d"}</span>`
         : "";
     const rows = [
       `<div class="di-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${dateDayLabel(r.date_time)} &middot; ${dateTimeLabel(when)}</div>`,
@@ -3079,6 +3179,50 @@
       else if (acc) respondToDate(acc.dataset.accept, "accepted");
       else if (dec) respondToDate(dec.dataset.decline, "declined");
     });
+  });
+
+  const DATE_IDEAS = [
+    { title: "Sunset picnic by the lake", activity: "dinner", duration: "half-day", place: "Lakefront park" },
+    { title: "Cozy movie night in", activity: "movie", duration: "2h", place: "Home, blankets & snacks" },
+    { title: "Slow morning coffee walk", activity: "coffee", duration: "1h", place: "The cute café downtown" },
+    { title: "Stargazing rooftop date", activity: "walk", duration: "2h", place: "Rooftop or hilltop" },
+    { title: "Mini road trip getaway", activity: "trip", duration: "full-day", place: "Somewhere new, no plan" },
+    { title: "Dancing in the kitchen night", activity: "surprise", duration: "1h", place: "Our kitchen" },
+    { title: "Hand-in-hand beach sunset", activity: "walk", duration: "half-day", place: "The beach" },
+    { title: "Cook a new recipe together", activity: "dinner", duration: "2h", place: "Our kitchen" },
+    { title: "Museum + ice cream afternoon", activity: "other", duration: "half-day", place: "The museum" },
+    { title: "Bike ride to nowhere", activity: "trip", duration: "half-day", place: "Pick a direction" },
+    { title: "Cozy blanket fort + fairy lights", activity: "surprise", duration: "1h", place: "Living room" },
+    { title: "Karaoke duet night", activity: "other", duration: "2h", place: "Home karaoke" },
+  ];
+  const DATE_NOTES = [
+    "Bring your best smile 💛",
+    "Dress comfy — you're adorable either way",
+    "I have a small surprise planned 🤫",
+    "Let's take lots of pictures!",
+    "No phones, just us 📵",
+    "I'll pick you up, be ready 🏃‍♂️",
+    "Extra cuddles included 🧸",
+  ];
+  surpriseDateBtn.addEventListener("click", () => {
+    if (!currentUser) {
+      showToast("Please log in first");
+      return;
+    }
+    const idea = DATE_IDEAS[Math.floor(Math.random() * DATE_IDEAS.length)];
+    const note = DATE_NOTES[Math.floor(Math.random() * DATE_NOTES.length)];
+    dateTitle.value = idea.title;
+    dateActivity.value = idea.activity;
+    dateDuration.value = idea.duration;
+    datePlace.value = idea.place;
+    dateNote.value = note;
+    const future = new Date();
+    future.setDate(future.getDate() + 1 + Math.floor(Math.random() * 6));
+    dateDay.value = future.toISOString().slice(0, 10);
+    dateTime.value = "18:30";
+    setImportance("special");
+    dateTitle.focus();
+    showToast("Here's an idea — make it yours!");
   });
 
   dateForm.addEventListener("submit", async (e) => {
