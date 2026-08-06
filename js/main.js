@@ -2797,6 +2797,17 @@
     }
   }
 
+  /* When a date is created, email BOTH partners (invitee + a copy to the proposer). */
+  async function sendDateEmailToBoth(request) {
+    const results = [];
+    for (const role of ["boyfriend", "girlfriend"]) {
+      results.push(await sendDateEmail({ to: role, request }));
+    }
+    if (results.some((r) => r.sent)) return { sent: true };
+    if (results.every((r) => r.skipped)) return { sent: false, skipped: true };
+    return { sent: false };
+  }
+
   /* ---- Notifications ---- */
   async function pushNotification(recipient, { type, title, body, href }) {
     try {
@@ -3077,13 +3088,13 @@
         body: `${COUPLE[currentUser.role].name} wants to take you on: "${title}"`,
         href: "#dates",
       });
-      const mail = await sendDateEmail({ to: partner, request: data });
+      const mail = await sendDateEmailToBoth(data);
       dateForm.reset();
       setImportance("special");
       dateSentNote.hidden = false;
       setTimeout(() => (dateSentNote.hidden = true), 7000);
       if (mail.sent) {
-        showToast("Date request sent! An email is on its way");
+        showToast("Date request sent to both of you! Emails are on their way");
       } else if (mail.skipped) {
         showToast("Request sent — email not configured yet");
       } else {

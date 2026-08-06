@@ -50,6 +50,6 @@ const EMAILJS = {
   publicKey: "",
   serviceId: "",
   templateId: "",
-  boyfriendEmail: "",
-  girlfriendEmail: "",
+  boyfriendEmail: "phuochuynh120@gmail.com",
+  girlfriendEmail: "nttmy170505@gmail.com",
 };
