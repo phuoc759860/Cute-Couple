@@ -20,6 +20,169 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  /* ---------- Login / site lock ---------- */
+  const SESSION_KEY = "love-session";
+  let currentUser = (() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+      return s && (s.role === "boyfriend" || s.role === "girlfriend") ? s : null;
+    } catch (_) {
+      return null;
+    }
+  })();
+
+  const loginOverlay = $("#loginOverlay");
+  const loginStepPick = $("#loginStepPick");
+  const loginStepCode = $("#loginStepCode");
+  const loginKeypad = $("#loginKeypad");
+  const loginAsk = $("#loginAsk");
+  const loginBack = $("#loginBack");
+  const loginCard = $(".login-card");
+  const codeDots = $("#codeDots");
+  const codeError = $("#codeError");
+  const logoutBtn = $("#logoutBtn");
+
+  let loginMode = null;
+  let pinEntry = "";
+
+  function partnerOf(role) {
+    return role === "boyfriend" ? "girlfriend" : "boyfriend";
+  }
+
+  function buildDots() {
+    codeDots.innerHTML = "";
+    for (let i = 0; i < 6; i++) {
+      const d = document.createElement("span");
+      d.className = "code-dot";
+      codeDots.appendChild(d);
+    }
+  }
+
+  function paintDots() {
+    $$(".code-dot", codeDots).forEach((d, i) => {
+      d.classList.toggle("filled", i < pinEntry.length);
+    });
+  }
+
+  function showCodeError(msg) {
+    codeError.textContent = msg || "";
+  }
+
+  function lockSite() {
+    document.body.classList.add("site-locked");
+    loginOverlay.classList.remove("hidden");
+    loginOverlay.setAttribute("aria-hidden", "false");
+  }
+
+  function unlockSite() {
+    document.body.classList.remove("site-locked");
+    loginOverlay.classList.add("hidden");
+    loginOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  function isLoggedIn() {
+    return !!currentUser;
+  }
+
+  function saveSession(user) {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    } catch (_) {}
+  }
+
+  function clearSession() {
+    try {
+      localStorage.removeItem(SESSION_KEY);
+    } catch (_) {}
+  }
+
+  function startLogin(persona) {
+    loginMode = persona;
+    pinEntry = "";
+    buildDots();
+    paintDots();
+    showCodeError("");
+    loginStepPick.hidden = true;
+    loginStepCode.hidden = false;
+    loginKeypad.hidden = false;
+    loginAsk.textContent = `Enter your 6-digit code, ${COUPLE[persona].name}`;
+  }
+
+  function resetLogin() {
+    loginMode = null;
+    pinEntry = "";
+    loginStepPick.hidden = false;
+    loginStepCode.hidden = true;
+    loginKeypad.hidden = true;
+    showCodeError("");
+  }
+
+  loginBack.addEventListener("click", resetLogin);
+
+  $$(".persona").forEach((p) => {
+    p.addEventListener("click", () => startLogin(p.dataset.persona));
+  });
+
+  loginKeypad.addEventListener("click", (e) => {
+    const digit = e.target.closest("[data-digit]");
+    const action = e.target.closest("[data-action]");
+    if (!loginMode) return;
+    if (digit) {
+      if (pinEntry.length >= 6) return;
+      pinEntry += digit.dataset.digit;
+      paintDots();
+      if (pinEntry.length === 6) setTimeout(verifyLogin, 130);
+    } else if (action) {
+      if (action.dataset.action === "back") {
+        pinEntry = pinEntry.slice(0, -1);
+        paintDots();
+      } else if (action.dataset.action === "clear") {
+        pinEntry = "";
+        paintDots();
+      }
+    }
+  });
+
+  function verifyLogin() {
+    if (pinEntry === LOGIN_CODES[loginMode]) {
+      currentUser = { role: loginMode };
+      saveSession(currentUser);
+      completeLogin();
+    } else {
+      showCodeError("Wrong code — try again, love");
+      pinEntry = "";
+      paintDots();
+      loginCard.classList.remove("shake");
+      void loginCard.offsetWidth;
+      loginCard.classList.add("shake");
+    }
+  }
+
+  function completeLogin() {
+    unlockSite();
+    resetLogin();
+    updateAuthUI();
+    showToast(`Welcome back, ${COUPLE[currentUser.role].name} ♥`);
+    initCoupleFeatures();
+    setTimeout(openFromHash, 800);
+  }
+
+  function logoutNow() {
+    currentUser = null;
+    clearSession();
+    hideCoupleUI();
+    teardownCoupleChannels();
+    updateAuthUI();
+    lockSite();
+    showToast("Locked — see you soon ♥");
+  }
+
+  logoutBtn.addEventListener("click", logoutNow);
+
+  if (currentUser) unlockSite();
+  else lockSite();
+  updateAuthUI();
+
   /* ---------- Preloader ---------- */
   window.addEventListener("load", () => {
     setTimeout(() => $("#preloader").classList.add("hidden"), 400);
@@ -2516,6 +2679,459 @@
     }
   }
 
+  /* ---------- Dating + notifications (couple features) ---------- */
+  const datesOffline = $("#datesOffline");
+  const datesDashboard = $("#datesDashboard");
+  const dateForm = $("#dateForm");
+  const dateTitle = $("#dateTitle");
+  const dateDay = $("#dateDay");
+  const dateTime = $("#dateTime");
+  const dateActivity = $("#dateActivity");
+  const dateDuration = $("#dateDuration");
+  const datePlace = $("#datePlace");
+  const dateNote = $("#dateNote");
+  const dateSend = $("#dateSend");
+  const dateSentNote = $("#dateSentNote");
+  const dateImportanceWrap = $("#dateImportance");
+  const pendingList = $("#pendingList");
+  const upcomingList = $("#upcomingList");
+  const historyList = $("#historyList");
+  const pendingEmpty = $("#pendingEmpty");
+  const upcomingEmpty = $("#upcomingEmpty");
+  const historyEmpty = $("#historyEmpty");
+  const notifBell = $("#notifBell");
+  const notifBadge = $("#notifBadge");
+  const notifPanel = $("#notifPanel");
+  const notifList = $("#notifList");
+  const notifEmpty = $("#notifEmpty");
+  const notifClear = $("#notifClear");
+
+  const ACTIVITY_LABELS = {
+    dinner: "Dinner", movie: "Movie", coffee: "Coffee", walk: "Walk",
+    trip: "Trip", surprise: "Surprise", other: "Other",
+  };
+  const DURATION_LABELS = { "1h": "~1 hour", "2h": "~2 hours", "half-day": "Half day", "full-day": "Full day" };
+  const IMPORTANCE_LABELS = { casual: "Casual", special: "Special", must: "Must-not-miss" };
+  const activityLabel = (a) => ACTIVITY_LABELS[a] || a;
+  const durationLabel = (d) => DURATION_LABELS[d] || "";
+  const importanceLabel = (i) => IMPORTANCE_LABELS[i] || i;
+
+  let dateRows = [];
+  let notifRows = [];
+  let notifChannel = null;
+  let dateChannel = null;
+  let currentImportance = "special";
+
+  /* ---- Identity chrome ---- */
+  function updateAuthUI() {
+    const id = $("#navIdentity");
+    if (id) {
+      id.hidden = !currentUser;
+      if (currentUser) id.textContent = `Hi, ${COUPLE[currentUser.role].name}`;
+    }
+    const lockBtn = $("#logoutBtn");
+    if (lockBtn) lockBtn.hidden = !currentUser;
+    if (!currentUser) {
+      const badge = $("#notifBadge");
+      if (badge) badge.hidden = true;
+    }
+  }
+
+  function hideCoupleUI() {
+    const dash = $("#datesDashboard");
+    if (dash) dash.hidden = true;
+    const badge = $("#notifBadge");
+    if (badge) badge.hidden = true;
+    const panel = $("#notifPanel");
+    if (panel) panel.hidden = true;
+  }
+
+  function teardownCoupleChannels() {
+    if (notifChannel) {
+      supabase.removeChannel(notifChannel);
+      notifChannel = null;
+    }
+    if (dateChannel) {
+      supabase.removeChannel(dateChannel);
+      dateChannel = null;
+    }
+  }
+
+  /* ---- Email (EmailJS) ---- */
+  let emailReady = false;
+  function initEmail() {
+    if (!window.emailjs || !EMAILJS.publicKey) return;
+    try {
+      emailjs.init({ publicKey: EMAILJS.publicKey });
+      emailReady = true;
+    } catch (_) {}
+  }
+
+  async function sendDateEmail({ to, request }) {
+    if (!emailReady) return { sent: false, skipped: true };
+    const toEmail = to === "boyfriend" ? EMAILJS.boyfriendEmail : EMAILJS.girlfriendEmail;
+    if (!toEmail) return { sent: false, skipped: true };
+    const when = new Date(request.date_time);
+    const params = {
+      to_email: toEmail,
+      to_name: COUPLE[to].name,
+      from_name: COUPLE[request.proposer].name,
+      date_title: request.title,
+      date_day: when.toLocaleDateString(undefined, {
+        weekday: "long", month: "long", day: "numeric", year: "numeric",
+      }),
+      date_time: when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+      place: request.place || "—",
+      activity: activityLabel(request.activity),
+      duration: durationLabel(request.duration) || "Any",
+      importance: importanceLabel(request.importance),
+      note: request.note || "—",
+      link: location.origin + location.pathname + "#dates",
+    };
+    try {
+      await emailjs.send(EMAILJS.serviceId, EMAILJS.templateId, params);
+      return { sent: true };
+    } catch (err) {
+      console.error("EmailJS send failed:", err);
+      return { sent: false };
+    }
+  }
+
+  /* ---- Notifications ---- */
+  async function pushNotification(recipient, { type, title, body, href }) {
+    try {
+      await supabase.from("notifications").insert({
+        recipient, type, title, body, href: href || "#dates",
+      });
+    } catch (err) {
+      console.error("Notification insert failed:", err);
+    }
+  }
+
+  function notifTimeLabel(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return "just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+  }
+
+  function renderNotifications() {
+    if (!notifBadge) return;
+    const unread = notifRows.filter((n) => !n.read).length;
+    notifBadge.hidden = unread === 0;
+    notifBadge.textContent = unread > 99 ? "99+" : unread;
+    if (notifList) {
+      notifList.innerHTML = "";
+      notifRows.slice(0, 15).forEach((n) => notifList.appendChild(notifItem(n)));
+    }
+    if (notifEmpty) notifEmpty.hidden = notifRows.length > 0;
+  }
+
+  function notifItem(n) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "notif-item" + (n.read ? "" : " unread");
+    const ico =
+      n.type === "date_response"
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+    btn.innerHTML = `
+      <span class="n-ico">${ico}</span>
+      <span class="n-body">
+        <span class="n-title">${escapeHtml(n.title)}<span class="n-dot"></span></span>
+        <span class="n-text">${escapeHtml(n.body)}</span>
+        <span class="n-time">${notifTimeLabel(n.created_at)}</span>
+      </span>`;
+    btn.addEventListener("click", () => {
+      markNotifRead(n.id);
+      closeNotifPanel();
+      const target = document.querySelector(n.href);
+      if (target) target.scrollIntoView({ behavior: "smooth" });
+    });
+    return btn;
+  }
+
+  async function markNotifRead(id) {
+    const row = notifRows.find((r) => r.id === id);
+    if (row && row.read) return;
+    try {
+      await supabase.from("notifications").update({ read: true }).eq("id", id);
+    } catch (_) {}
+    if (row) row.read = true;
+    renderNotifications();
+  }
+
+  async function loadNotifications() {
+    if (!currentUser) return;
+    try {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("recipient", currentUser.role)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      notifRows = data || [];
+      renderNotifications();
+    } catch (err) {
+      console.warn("Notifications unavailable:", err.message || err);
+    }
+  }
+
+  function openNotifPanel() {
+    notifPanel.hidden = false;
+  }
+  function closeNotifPanel() {
+    notifPanel.hidden = true;
+  }
+
+  notifBell.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (notifPanel.hidden) openNotifPanel();
+    else closeNotifPanel();
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".bell-wrap")) closeNotifPanel();
+  });
+  notifClear.addEventListener("click", async () => {
+    await Promise.all(notifRows.filter((n) => !n.read).map((n) => markNotifRead(n.id)));
+    showToast("All caught up");
+  });
+
+  /* ---- Dates ---- */
+  function dateDayLabel(iso) {
+    return new Date(iso).toLocaleDateString(undefined, {
+      weekday: "short", month: "short", day: "numeric",
+    });
+  }
+  function dateTimeLabel(d) {
+    if (!d) return "";
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function setImportance(v) {
+    currentImportance = v;
+    $$(".importance-pills .pill", dateImportanceWrap).forEach((p) => {
+      p.classList.toggle("active", p.dataset.importance === v);
+    });
+  }
+  dateImportanceWrap.addEventListener("click", (e) => {
+    const p = e.target.closest(".pill");
+    if (p) setImportance(p.dataset.importance);
+  });
+
+  function dateCard(r) {
+    const art = document.createElement("article");
+    art.className =
+      "date-item" +
+      (r.proposer === currentUser.role ? " mine" : "") +
+      (r.status === "accepted" ? " accepted" : "");
+    const isForMe = r.proposer !== currentUser.role;
+    const when = new Date(r.date_time);
+    const daysTo = Math.ceil((when.getTime() - Date.now()) / 86400000);
+    const count =
+      r.status === "accepted" && daysTo >= 0
+        ? `<span class="di-count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${
+            daysTo === 0 ? "Today" : daysTo === 1 ? "Tomorrow" : daysTo + "d"
+          }</span>`
+        : "";
+    const rows = [
+      `<div class="di-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${dateDayLabel(r.date_time)} &middot; ${dateTimeLabel(when)}</div>`,
+      r.place ? `<div class="di-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${escapeHtml(r.place)}</div>` : "",
+      `<div class="di-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.7L19 10l-5.1 1.3L12 17l-1.9-5.7L5 10l5.1-1.3z"/></svg>${escapeHtml(activityLabel(r.activity))}</div>`,
+      r.duration ? `<div class="di-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>${escapeHtml(durationLabel(r.duration))}</div>` : "",
+      r.importance !== "casual" ? `<div class="di-row"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l1.9 5.7L19 10l-5.1 1.3L12 17l-1.9-5.7L5 10l5.1-1.3z"/></svg>${escapeHtml(importanceLabel(r.importance))}</div>` : "",
+      r.note ? `<div class="di-note">${escapeHtml(r.note)}</div>` : "",
+    ].join("");
+    let actions = "";
+    if (isForMe && r.status === "pending") {
+      actions = `<div class="di-actions">
+        <button class="btn btn-accept" type="button" data-accept="${r.id}">Accept</button>
+        <button class="btn btn-decline" type="button" data-decline="${r.id}">Decline</button>
+      </div>`;
+    }
+    art.innerHTML = `
+      <div class="di-head">
+        <h4 class="di-title">${escapeHtml(r.title)}</h4>
+        <span class="di-badge ${r.status}">${r.status}</span>
+      </div>
+      <div class="di-rows">${rows}</div>
+      <div class="di-meta">
+        <span>by ${escapeHtml(COUPLE[r.proposer].name)}</span>
+        ${count}
+      </div>
+      ${actions}`;
+    return art;
+  }
+
+  function renderDates() {
+    if (!currentUser) return;
+    const role = currentUser.role;
+    const now = Date.now();
+    const pending = dateRows.filter((r) => r.status === "pending" && r.proposer !== role);
+    const upcoming = dateRows
+      .filter((r) => r.status === "accepted" && new Date(r.date_time).getTime() >= now)
+      .sort((a, b) => new Date(a.date_time) - new Date(b.date_time));
+    const history = dateRows
+      .filter((r) => !pending.includes(r) && !upcoming.includes(r))
+      .slice(0, 12);
+
+    pendingList.innerHTML = "";
+    pending.forEach((r) => pendingList.appendChild(dateCard(r)));
+    pendingEmpty.hidden = pending.length > 0;
+
+    upcomingList.innerHTML = "";
+    upcoming.forEach((r) => upcomingList.appendChild(dateCard(r)));
+    upcomingEmpty.hidden = upcoming.length > 0;
+
+    historyList.innerHTML = "";
+    history.forEach((r) => historyList.appendChild(dateCard(r)));
+    historyEmpty.hidden = history.length > 0;
+  }
+
+  async function loadDates() {
+    if (!currentUser) return;
+    try {
+      const { data, error } = await supabase
+        .from("date_requests")
+        .select("*")
+        .order("date_time", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      dateRows = data || [];
+      datesOffline.hidden = true;
+      datesDashboard.hidden = false;
+      renderDates();
+    } catch (err) {
+      console.warn("Dating unavailable:", err.message || err);
+      datesOffline.hidden = false;
+      datesDashboard.hidden = true;
+    }
+  }
+
+  async function respondToDate(id, status) {
+    const row = dateRows.find((r) => r.id === id);
+    if (!row || !currentUser) return;
+    try {
+      const { error } = await supabase
+        .from("date_requests")
+        .update({ status, responded_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      await pushNotification(row.proposer, {
+        type: "date_response",
+        title: status === "accepted" ? "Date accepted ♥" : "Date declined",
+        body: `${COUPLE[currentUser.role].name} ${status === "accepted" ? "said YES to" : "declined"} "${row.title}"`,
+        href: "#dates",
+      });
+      await sendDateEmail({ to: row.proposer, request: { ...row, status } });
+      showToast(status === "accepted" ? "Date accepted — yay!" : "Date declined");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not update the date");
+    }
+  }
+
+  [pendingList, upcomingList, historyList].forEach((list) => {
+    list.addEventListener("click", (e) => {
+      const acc = e.target.closest("[data-accept]");
+      const dec = e.target.closest("[data-decline]");
+      if (acc) respondToDate(acc.dataset.accept, "accepted");
+      else if (dec) respondToDate(dec.dataset.decline, "declined");
+    });
+  });
+
+  dateForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentUser) {
+      showToast("Please log in first");
+      return;
+    }
+    const title = dateTitle.value.trim();
+    const day = dateDay.value;
+    const time = dateTime.value;
+    if (!title || !day || !time) {
+      showToast("Please fill in title, date and time");
+      return;
+    }
+    const when = new Date(`${day}T${time || "12:00"}`);
+    const payload = {
+      proposer: currentUser.role,
+      title,
+      date_time: when.toISOString(),
+      place: datePlace.value.trim(),
+      activity: dateActivity.value,
+      note: dateNote.value.trim(),
+      duration: dateDuration.value,
+      importance: currentImportance,
+      status: "pending",
+    };
+    try {
+      const { data, error } = await supabase.from("date_requests").insert(payload).select().single();
+      if (error) throw error;
+      const partner = partnerOf(currentUser.role);
+      await pushNotification(partner, {
+        type: "date_request",
+        title: "You have a date! ♥",
+        body: `${COUPLE[currentUser.role].name} wants to take you on: "${title}"`,
+        href: "#dates",
+      });
+      const mail = await sendDateEmail({ to: partner, request: data });
+      dateForm.reset();
+      setImportance("special");
+      dateSentNote.hidden = false;
+      setTimeout(() => (dateSentNote.hidden = true), 7000);
+      if (mail.sent) {
+        showToast("Date request sent! An email is on its way");
+      } else if (mail.skipped) {
+        showToast("Request sent — email not configured yet");
+      } else {
+        showToast("Request sent, but email failed");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Could not send the date request");
+    }
+  });
+
+  /* ---- Realtime subscriptions ---- */
+  function subscribeDateRequests() {
+    if (dateChannel || !currentUser) return;
+    dateChannel = supabase
+      .channel("couple-dates-" + currentUser.role)
+      .on("postgres_changes", { event: "*", schema: "public", table: "date_requests" }, () => {
+        loadDates();
+      })
+      .subscribe();
+  }
+
+  function subscribeCoupleNotifications() {
+    if (notifChannel || !currentUser) return;
+    notifChannel = supabase
+      .channel("couple-notifs-" + currentUser.role)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `recipient=eq.${currentUser.role}` },
+        (payload) => {
+          notifRows.unshift(payload.new);
+          renderNotifications();
+        }
+      )
+      .subscribe();
+  }
+
+  function initCoupleFeatures() {
+    if (!currentUser) return;
+    datesDashboard.hidden = false;
+    datesOffline.hidden = true;
+    updateAuthUI();
+    loadDates();
+    loadNotifications();
+    subscribeDateRequests();
+    subscribeCoupleNotifications();
+  }
+
   /* ---------- Init ---------- */
   initGalleryCards();
   renderGallery();
@@ -2524,5 +3140,10 @@
   loadVideos();
   subscribeToVideos();
   initNotes();
-  setTimeout(openFromHash, 1200);
+  if (window.emailjs) initEmail();
+  setImportance("special");
+  if (currentUser) {
+    initCoupleFeatures();
+    setTimeout(openFromHash, 1200);
+  }
 })();

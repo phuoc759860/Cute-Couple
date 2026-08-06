@@ -21,6 +21,61 @@
 </head>
 <body>
 
+  <!-- Login / site lock -->
+  <div class="login-overlay" id="loginOverlay" aria-hidden="false">
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="login-heart">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+        </span>
+        <h1 class="login-title">Our Little World</h1>
+        <p class="login-sub">Just for us two.</p>
+      </div>
+
+      <div class="login-step" id="loginStepPick">
+        <p class="login-ask">Who are you?</p>
+        <div class="login-personas">
+          <button class="persona" type="button" data-persona="boyfriend">
+            <span class="persona-avatar">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+            </span>
+            <span class="persona-name">Anh F</span>
+            <span class="persona-role">Boyfriend</span>
+          </button>
+          <button class="persona" type="button" data-persona="girlfriend">
+            <span class="persona-avatar">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+            </span>
+            <span class="persona-name">Em Mỹ</span>
+            <span class="persona-role">Girlfriend</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="login-step" id="loginStepCode" hidden>
+        <button class="login-back" id="loginBack" type="button" aria-label="Back">&#8249;</button>
+        <p class="login-ask" id="loginAsk">Enter your 6-digit code</p>
+        <div class="code-dots" id="codeDots"></div>
+        <p class="code-error" id="codeError" role="alert"></p>
+      </div>
+
+      <div class="login-keypad" id="loginKeypad" hidden>
+        <button type="button" data-digit="1">1</button>
+        <button type="button" data-digit="2">2</button>
+        <button type="button" data-digit="3">3</button>
+        <button type="button" data-digit="4">4</button>
+        <button type="button" data-digit="5">5</button>
+        <button type="button" data-digit="6">6</button>
+        <button type="button" data-digit="7">7</button>
+        <button type="button" data-digit="8">8</button>
+        <button type="button" data-digit="9">9</button>
+        <button type="button" class="key-clear" data-action="clear" aria-label="Clear">C</button>
+        <button type="button" data-digit="0">0</button>
+        <button type="button" class="key-back" data-action="back" aria-label="Backspace">&#9003;</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Preloader -->
   <div class="preloader" id="preloader">
     <div class="preloader-heart">
@@ -42,11 +97,32 @@
         <li><a href="#videos">Videos</a></li>
         <li><a href="#story">Our Story</a></li>
         <li><a href="#countdown">Countdown</a></li>
+        <li><a href="#dates">Dates</a></li>
         <li><a href="#messages">Love Notes</a></li>
       </ul>
-      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
-        <span></span><span></span><span></span>
-      </button>
+      <div class="nav-chrome">
+        <span class="nav-identity" id="navIdentity" hidden></span>
+        <div class="bell-wrap">
+          <button class="icon-btn bell-btn" id="notifBell" type="button" aria-label="Notifications" title="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="bell-badge" id="notifBadge" hidden>0</span>
+          </button>
+          <div class="notif-panel" id="notifPanel" hidden>
+            <div class="notif-head">
+              <h4>Notifications</h4>
+              <button class="link-btn" id="notifClear" type="button">Mark all read</button>
+            </div>
+            <div class="notif-list" id="notifList"></div>
+            <p class="notif-empty" id="notifEmpty">Nothing new yet &#10084;</p>
+          </div>
+        </div>
+        <button class="icon-btn lock-btn" id="logoutBtn" type="button" aria-label="Lock" title="Lock &amp; log out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </button>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </nav>
   </header>
 
@@ -245,6 +321,107 @@
       <div class="anniversary-meta">
         <span class="anniversary-pill"><strong id="annivDays">0</strong> days to go</span>
         <span class="anniversary-pill"><strong id="annivTogether">0</strong> days together</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dating -->
+  <section class="dates" id="dates">
+    <div class="section-head">
+      <p class="section-eyebrow">Dating</p>
+      <h2 class="section-title">Our Next <span class="accent">Dates</span></h2>
+      <p class="section-sub">Plan a date, send the request, and make them smile.</p>
+    </div>
+
+    <div class="dates-offline" id="datesOffline" hidden>
+      The dating feature isn't connected yet — run supabase-dating-setup.sql to switch it on.
+    </div>
+
+    <div class="dates-dashboard" id="datesDashboard">
+      <div class="date-propose">
+        <h3 class="date-card-title">Propose a Date</h3>
+        <form id="dateForm" novalidate>
+          <div class="field">
+            <span>Title</span>
+            <input type="text" id="dateTitle" maxlength="60" placeholder="e.g. Sunset dinner by the lake" required />
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>Date</span>
+              <input type="date" id="dateDay" required />
+            </label>
+            <label class="field">
+              <span>Time</span>
+              <input type="time" id="dateTime" required />
+            </label>
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>Activity</span>
+              <select id="dateActivity">
+                <option value="dinner">Dinner</option>
+                <option value="movie">Movie</option>
+                <option value="coffee">Coffee</option>
+                <option value="walk">Walk</option>
+                <option value="trip">Trip</option>
+                <option value="surprise">Surprise</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Duration</span>
+              <select id="dateDuration">
+                <option value="">Any</option>
+                <option value="1h">~ 1 hour</option>
+                <option value="2h">~ 2 hours</option>
+                <option value="half-day">Half day</option>
+                <option value="full-day">Full day</option>
+              </select>
+            </label>
+          </div>
+          <label class="field">
+            <span>Place</span>
+            <input type="text" id="datePlace" maxlength="80" placeholder="Where shall we go?" />
+          </label>
+          <label class="field">
+            <span>Details</span>
+            <textarea id="dateNote" rows="3" maxlength="200" placeholder="What makes this special? Dress code, surprises, plan..."></textarea>
+          </label>
+          <div class="field">
+            <span>How important?</span>
+            <div class="importance-pills" id="dateImportance">
+              <button type="button" class="pill" data-importance="casual">Casual</button>
+              <button type="button" class="pill active" data-importance="special">Special</button>
+              <button type="button" class="pill" data-importance="must">Must-not-miss</button>
+            </div>
+          </div>
+          <button class="btn btn-primary date-submit" id="dateSend" type="submit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+            Send Date Request
+          </button>
+          <p class="date-sent-note" id="dateSentNote" hidden>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
+            Request sent — they'll get a notification &amp; an email. &#10084;
+          </p>
+        </form>
+      </div>
+
+      <div class="date-columns">
+        <div class="date-group">
+          <h3 class="date-card-title">Requests for You</h3>
+          <p class="date-group-empty" id="pendingEmpty">No pending requests. Enjoy the calm &#10084;</p>
+          <div class="date-list" id="pendingList"></div>
+        </div>
+        <div class="date-group">
+          <h3 class="date-card-title">Upcoming Dates</h3>
+          <p class="date-group-empty" id="upcomingEmpty">Nothing scheduled yet.</p>
+          <div class="date-list" id="upcomingList"></div>
+        </div>
+        <div class="date-group">
+          <h3 class="date-card-title">History</h3>
+          <p class="date-group-empty" id="historyEmpty">No past requests yet.</p>
+          <div class="date-list" id="historyList"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -555,6 +732,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 8 6 4-6 4V8z"/><path d="M3 6a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"/></svg>
       <span>Videos</span>
     </button>
+    <button class="b bnav-item" type="button" data-target="dates" aria-label="Dates">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>Dates</span>
+    </button>
     <span class="bnav-spacer"><button class="bnav-music" id="bnavMusic" type="button" aria-label="Play our song" title="Play our song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button></span>
     <button class="b bnav-item" type="button" data-target="story" aria-label="Our Story">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg>
@@ -574,6 +755,7 @@
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/main.js"></script>
