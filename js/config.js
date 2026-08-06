@@ -48,8 +48,8 @@ const COUPLE = {
    ===================================================== */
 const EMAILJS = {
   publicKey: "",
-  serviceId: "",
-  templateId: "",
+  serviceId: "service_shuk3ib",
+  templateId: "template_p1lznbp",
   boyfriendEmail: "phuochuynh120@gmail.com",
   girlfriendEmail: "nttmy170505@gmail.com",
 };

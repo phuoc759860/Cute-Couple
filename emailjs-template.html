@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmailJS Template — Our Date</title>
+</head>
+<body>
+  <p style="margin:0 0 16px">
+    Paste the <strong>Subject</strong> and <strong>Body</strong> below into your
+    EmailJS template. Keep the {{variable}} names EXACTLY as written — they map to
+    the params sent by js/main.js (sendDateEmail).
+  </p>
+  <hr />
+
+  <h2>SUBJECT (paste into the Subject field)</h2>
+  <pre>{{from_name}} has a date coming for you, {{to_name}}! &#10084;</pre>
+
+  <h2>SUBJECT (accept/decline variant — optional second version)</h2>
+  <pre>A date update for you, {{to_name}} &#10084;</pre>
+
+  <hr />
+
+  <h2>BODY (paste into the Content / HTML field)</h2>
+  <pre>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#fbeef3" style="padding:24px">
+      <tr><td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden">
+          <tr><td align="center" style="padding:40px 40px 8px">
+            <div style="font-size:44px">&#10084;</div>
+            <h1 style="font-family:Georgia,serif;color:#e0527a;margin:6px 0 4px;font-size:30px">{{date_title}}</h1>
+            <p style="color:#7d6a74;font-family:Arial,sans-serif;margin:0;font-size:15px">By {{from_name}} &middot; Just for us two</p>
+          </td></tr>
+
+          <tr><td align="center" style="padding:24px 40px 0">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="background:#fff6f9;border:1px solid #f3dbe4;border-radius:14px;padding:14px 22px;width:150px">
+                  <div style="color:#b98a5e;font-size:12px;letter-spacing:2px;text-transform:uppercase">Date &amp; Time</div>
+                  <div style="color:#3b2b33;font-family:Georgia,serif;font-size:18px">{{date_day}}</div>
+                  <div style="color:#3b2b33;font-family:Arial,sans-serif;font-size:16px">{{date_time}}</div>
+                </td>
+                <td style="width:16px"></td>
+                <td align="center" style="background:#fff6f0;border:1px solid #f3dbe4;border-radius:14px;padding:14px 22px;width:150px">
+                  <div style="color:#b98a5e;font-size:12px;letter-spacing:2px;text-transform:uppercase">Activity</div>
+                  <div style="color:#e0527a;font-family:Georgia,serif;font-size:20px">{{activity}}</div>
+                  <div style="color:#7d6a74;font-family:Arial,sans-serif;font-size:13px">{{duration}}</div>
+                </td>
+              </tr>
+            </table>
+          </td></tr>
+
+          <tr><td align="center" style="padding:20px 40px 0">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%">
+              <tr>
+                <td style="background:#f7f7fb;border-radius:12px;padding:14px 18px">
+                  <span style="font-size:14px">&#128205;</span>
+                  <span style="color:#444;font-family:Arial,sans-serif;font-size:15px">&nbsp; <b>Place:</b> {{place}}</span>
+                </td>
+              </tr>
+              <tr><td style="height:8px"></td></tr>
+              <tr>
+                <td style="background:#f7f7fb;border-radius:12px;padding:14px 18px">
+                  <span style="font-size:14px">&#11088;</span>
+                  <span style="color:#444;font-family:Arial,sans-serif;font-size:15px">&nbsp; <b>Importance:</b> {{importance}}</span>
+                </td>
+              </tr>
+              <tr><td style="height:8px"></td></tr>
+              <tr>
+                <td style="background:#f7f7fb;border-radius:12px;padding:14px 18px;font-style:italic;color:#6a5a62;font-family:Georgia,serif;font-size:15px">
+                  &#8220;{{note}}&#8221;
+                </td>
+              </tr>
+            </table>
+          </td></tr>
+
+          <tr><td align="center" style="padding:28px 40px 40px">
+            <a href="{{link}}" target="_blank"
+               style="background:linear-gradient(135deg,#e0527a,#c93b66);color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;text-decoration:none;padding:14px 34px;border-radius:999px;display:inline-block">
+              Reply in our album &#10084;
+            </a>
+            <p style="color:#b98a5e;font-size:12px;margin-top:18px;font-family:Arial,sans-serif">
+              Love, {{from_name}} &middot; made with &#10084; just for {{to_name}}
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </pre>
+</body>
+</html>
