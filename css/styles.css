@@ -3463,13 +3463,35 @@ body.site-locked {
 .notif-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
 }
 .notif-head h4 {
   font-family: var(--font-serif);
   font-size: 18px;
   color: var(--ink);
+  flex: 0 0 auto;
+}
+.notif-head .link-btn {
+  margin-left: auto;
+}
+.notif-close {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.25s, color 0.25s, transform 0.2s;
+}
+.notif-close:hover {
+  background: var(--primary);
+  color: #fff;
+  transform: rotate(90deg);
 }
 .notif-list {
   max-height: 300px;

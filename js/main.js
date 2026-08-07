@@ -1038,7 +1038,7 @@
         <h3 class="card-title">${escapeHtml(record.title || "Our Memory")}</h3>
         <p class="card-desc">${escapeHtml(record.description || "")}</p>
       </figcaption>
-      <button class="card-actions">${CARD_ACTIONS}</button>
+      <div class="card-actions">${CARD_ACTIONS}</div>
     `;
     const del = $(".card-delete", fig);
     del.addEventListener("click", (e) => {
@@ -2192,12 +2192,12 @@
   }
 
   /* ---------- Toast ---------- */
-  function showToast(msg) {
+  function showToast(msg, duration = 2600) {
     const toast = $("#toast");
     toast.textContent = msg;
     toast.classList.add("show");
     clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => toast.classList.remove("show"), 2600);
+    showToast._t = setTimeout(() => toast.classList.remove("show"), duration);
   }
 
   /* ---------- Ambient music ---------- */
@@ -2554,7 +2554,7 @@
         <h3 class="card-title">${escapeHtml(record.title || "Our Moment")}</h3>
         <p class="card-desc">${escapeHtml(record.description || "")}</p>
       </figcaption>
-      <button class="card-actions">${CARD_ACTIONS}</button>
+      <div class="card-actions">${CARD_ACTIONS}</div>
     `;
     const del = $(".card-delete", fig);
     del.addEventListener("click", (e) => {
@@ -2770,6 +2770,17 @@
   const installAppBtn = $("#installAppBtn");
   const installDismiss = $("#installDismiss");
   let deferredInstall = null;
+
+  function hideInstallCard() {
+    if (!installCard) return;
+    installCard.classList.remove("show");
+    installCard.setAttribute("aria-hidden", "true");
+  }
+
+  const isIOS =
+    /iP(hone|ad|od)/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredInstall = e;
@@ -2779,28 +2790,51 @@
     }
   });
   window.addEventListener("appinstalled", () => {
-    if (installCard) installCard.classList.remove("show");
+    hideInstallCard();
     localStorage.setItem("love-install-dismissed", "1");
     showToast("Installed — find us on your home screen");
   });
   if (installAppBtn) {
     installAppBtn.addEventListener("click", async () => {
       if (!deferredInstall) {
-        showToast("Add our page to your home screen from the browser menu");
+        if (isIOS) {
+          hideInstallCard();
+          localStorage.setItem("love-install-dismissed", "1");
+          showToast("Tap Share  →  Add to Home Screen", 4200);
+        } else {
+          hideInstallCard();
+          localStorage.setItem("love-install-dismissed", "1");
+          showToast("Use your browser menu: Add to Home Screen / Install app");
+        }
         return;
       }
       deferredInstall.prompt();
       await deferredInstall.userChoice.catch(() => {});
       deferredInstall = null;
-      if (installCard) installCard.classList.remove("show");
+      hideInstallCard();
       localStorage.setItem("love-install-dismissed", "1");
     });
   }
   if (installDismiss) {
-    installDismiss.addEventListener("click", () => {
-      if (installCard) installCard.classList.remove("show");
+    installDismiss.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      hideInstallCard();
       localStorage.setItem("love-install-dismissed", "1");
     });
+    installDismiss.addEventListener("pointerdown", (e) => e.stopPropagation());
+  }
+
+  /* iOS fallback: the install prompt never fires there, so after a short
+     delay, surface the card with instructions instead of never showing it. */
+  if (isIOS && installCard && !localStorage.getItem("love-install-dismissed")) {
+    setTimeout(() => {
+      const installed = window.matchMedia("(display-mode: standalone)").matches;
+      if (!installed) {
+        installCard.classList.add("show");
+        installCard.setAttribute("aria-hidden", "false");
+      }
+    }, 2500);
   }
 
   /* ---------- Service worker (offline app shell) ---------- */
@@ -2885,6 +2919,7 @@
   const notifList = $("#notifList");
   const notifEmpty = $("#notifEmpty");
   const notifClear = $("#notifClear");
+  const notifClose = $("#notifClose");
 
   const ACTIVITY_LABELS = {
     dinner: "Dinner", movie: "Movie", coffee: "Coffee", walk: "Walk",
@@ -3105,6 +3140,10 @@
   notifClear.addEventListener("click", async () => {
     await Promise.all(notifRows.filter((n) => !n.read).map((n) => markNotifRead(n.id)));
     showToast("All caught up");
+  });
+  notifClose.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeNotifPanel();
   });
 
   /* ---- Dates ---- */
