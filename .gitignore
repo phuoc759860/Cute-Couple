@@ -1,0 +1,14 @@
+# ============================================================
+# Personal / private settings — never commit these to the repo.
+# They live only on your machine. Copy from config.example.js.
+# ============================================================
+
+# Supabase keys, login codes + email addresses
+js/config.js
+
+# Supabase schema setup scripts
+supabase-*.sql
+
+# Local environment scratch files
+.env
+.env.local

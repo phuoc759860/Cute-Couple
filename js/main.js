@@ -295,7 +295,7 @@
   for (let i = 0; i < 12; i++) setTimeout(spawnHeart, i * 260);
 
   /* ---------- Days together counter ---------- */
-  const TOGETHER_DATE = new Date("2026-02-10T00:00:00").getTime();
+  const TOGETHER_DATE = new Date("2026-02-01T00:00:00").getTime();
   const daysTogetherEl = $("#daysTogether");
   let daysCounted = false;
   function updateDaysTogether() {
@@ -2868,6 +2868,1230 @@
     }
   }
 
+  /* ---------- On This Day ---------- */
+  const otdSection = $("#onThisDay");
+  const otdShuffle = $("#otdShuffle");
+  const otdEyebrow = $("#otdEyebrow");
+  const otdLabel = $("#otdLabel");
+  const otdBody = $("#otdBody");
+  let otdPool = [];
+  let otdPicked = null;
+
+  async function loadOnThisDayPool() {
+    otdPool = [];
+    try {
+      const { data: photos, error: photoErr } = await supabase
+        .from("photos")
+        .select("id,title,description,taken_at,created_at,storage_path,category")
+        .limit(500);
+      if (!photoErr && photos) {
+        photos.forEach((p) => {
+          otdPool.push({
+            kind: "photo",
+            id: p.id,
+            title: p.title,
+            description: p.description,
+            url: supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(p.storage_path).data.publicUrl,
+            date: p.taken_at ? p.taken_at + "T00:00:00" : p.created_at,
+          });
+        });
+      }
+    } catch (err) {
+      console.warn("On This Day — photos unavailable:", err.message || err);
+    }
+    try {
+      const { data: videos, error: videoErr } = await supabase
+        .from("videos")
+        .select("id,title,description,created_at,storage_path")
+        .limit(500);
+      if (!videoErr && videos) {
+        videos.forEach((v) => {
+          otdPool.push({
+            kind: "video",
+            id: v.id,
+            title: v.title,
+            description: v.description,
+            url: supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(v.storage_path).data.publicUrl,
+            date: v.created_at,
+          });
+        });
+      }
+    } catch (err) {
+      console.warn("On This Day — videos unavailable:", err.message || err);
+    }
+    try {
+      const { data: notes, error: noteErr } = await supabase
+        .from("love_messages")
+        .select("id,name,message,created_at")
+        .limit(500);
+      if (!noteErr && notes) {
+        notes.forEach((n) => {
+          otdPool.push({
+            kind: "note",
+            id: n.id,
+            title: n.name,
+            description: n.message,
+            url: "",
+            date: n.created_at,
+          });
+        });
+      }
+    } catch (err) {
+      console.warn("On This Day — notes unavailable:", err.message || err);
+    }
+  }
+
+  function yearsAgoLabel(iso) {
+    const then = new Date(iso);
+    if (isNaN(then)) return "";
+    const years = Math.max(0, Math.floor((Date.now() - then.getTime()) / 31557600000));
+    return years === 0 ? "this year" : years === 1 ? "1 year ago" : years + " years ago";
+  }
+
+  function formatOtdDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+  }
+
+  function renderOnThisDay() {
+    if (!otdSection) return;
+    if (!otdPicked) {
+      otdSection.hidden = true;
+      return;
+    }
+    otdSection.hidden = false;
+    otdEyebrow.textContent = "On This Day";
+    otdLabel.textContent = "A memory from " + yearsAgoLabel(otdPicked.date);
+    const pick = otdPicked;
+    otdBody.innerHTML = "";
+    if (pick.kind === "photo") {
+      const fig = document.createElement("figure");
+      fig.className = "otd-media";
+      fig.innerHTML = `
+        <img src="${pick.url}" alt="${escapeHtml(pick.title)}" loading="lazy" />
+        <figcaption>
+          <h3 class="card-title">${escapeHtml(pick.title || "Our Memory")}</h3>
+          <p class="card-date">${escapeHtml(formatOtdDate(pick.date))}</p>
+        </figcaption>`;
+      fig.addEventListener("click", () => {
+        const card = galleryCards.find((c) => c.dataset.savedId === pick.id);
+        if (card) {
+          activeCategory = "all";
+          currentPage = 1;
+          gallerySearch.value = "";
+          searchQuery = "";
+          $$(".filter-btn").forEach((b) => b.classList.toggle("active", b.dataset.filter === "all"));
+          renderGallery();
+          openLightbox(visibleCards().indexOf(card));
+        } else {
+          document.querySelector("#gallery").scrollIntoView({ behavior: "smooth" });
+        }
+      });
+      otdBody.appendChild(fig);
+    } else if (pick.kind === "video") {
+      const fig = document.createElement("figure");
+      fig.className = "otd-media";
+      fig.innerHTML = `
+        <video src="${pick.url}" preload="metadata"></video>
+        <figcaption>
+          <h3 class="card-title">${escapeHtml(pick.title || "Our Moment")}</h3>
+          <p class="card-date">${escapeHtml(formatOtdDate(pick.date))}</p>
+        </figcaption>`;
+      fig.addEventListener("click", () => openVideoViewer(pick, pick.url));
+      otdBody.appendChild(fig);
+    } else {
+      const block = document.createElement("blockquote");
+      block.className = "otd-note";
+      block.innerHTML = `<p>${escapeHtml(pick.description || "")}</p><footer>— ${escapeHtml(pick.title || "Anonymous")}, ${escapeHtml(formatOtdDate(pick.date))}</footer>`;
+      block.addEventListener("click", () =>
+        document.querySelector("#messages").scrollIntoView({ behavior: "smooth" })
+      );
+      otdBody.appendChild(block);
+    }
+  }
+
+  function pickOnThisDay() {
+    if (!otdPool.length) {
+      if (otdSection) otdSection.hidden = true;
+      return;
+    }
+    const now = new Date();
+    const today = now.getMonth() * 100 + now.getDate();
+    const matches = otdPool.filter((m) => {
+      const d = new Date(m.date);
+      if (isNaN(d)) return false;
+      return d.getFullYear() < now.getFullYear() && d.getMonth() * 100 + d.getDate() === today;
+    });
+    const source = matches.length ? matches : otdPool.filter((m) => !isNaN(new Date(m.date)));
+    if (!source.length) {
+      if (otdSection) otdSection.hidden = true;
+      return;
+    }
+    otdPicked = source[Math.floor(Math.random() * source.length)];
+    renderOnThisDay();
+  }
+
+  async function initOnThisDay() {
+    if (!otdSection) return;
+    await loadOnThisDayPool();
+    pickOnThisDay();
+  }
+  if (otdShuffle) {
+    otdShuffle.addEventListener("click", () => {
+      if (!otdPool.length) return;
+      const sameDay = otdPool.filter((m) => {
+        const d = new Date(m.date);
+        return !isNaN(d) && d.getMonth() * 100 + d.getDate() === new Date().getMonth() * 100 + new Date().getDate();
+      });
+      const pool = sameDay.length ? sameDay : otdPool;
+      let next = pool[Math.floor(Math.random() * pool.length)];
+      if (pool.length > 1 && next === otdPicked) {
+        next = pool[(pool.indexOf(otdPicked) + 1) % pool.length];
+      }
+      otdPicked = next;
+      renderOnThisDay();
+    });
+  }
+
+  /* ---------- Daily Question ---------- */
+  const DAILY_QUESTIONS = [
+    "What made you smile today?",
+    "If we could teleport anywhere right now, where are we going?",
+    "What's one small thing I did recently that you loved?",
+    "What's a song that instantly makes you think of us?",
+    "What's on your dream date-night menu?",
+    "If we had a free weekend with no plans, what would we do?",
+    "What's a silly inside joke only we understand?",
+    "Where do you want to be in five years — and who is with you?",
+    "What's your favorite memory from the last month?",
+    "If you could rewatch one moment of us together, which one?",
+    "What's something you want to try together that scares us a little?",
+    "What's a compliment you'd love to hear from me today?",
+    "What's your favorite thing about how we met?",
+    "What kind of little adventure is on your bucket list?",
+    "What's the best thing I've ever made you laugh?",
+    "If today was our last day together, what would you want to do?",
+    "What's a small daily habit of mine you secretly love?",
+    "What's one memory that still makes you blush?",
+  ];
+  const dqOffline = $("#dailyQOffline");
+  const dqCard = $("#dqCard");
+  const dqDate = $("#dqDate");
+  const dqQuestion = $("#dqQuestion");
+  const dqAnswerWrap = $("#dqAnswerWrap");
+  const dqAnswer = $("#dqAnswer");
+  const dqSubmit = $("#dqSubmit");
+  const dqStatus = $("#dqStatus");
+  const dqReveal = $("#dqReveal");
+  let dqRows = [];
+
+  function dqTodayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function todaysQuestion() {
+    const [y, m, d] = dqTodayISO().split("-").map(Number);
+    return DAILY_QUESTIONS[(y + m + d) % DAILY_QUESTIONS.length];
+  }
+
+  function dqOtherRole() {
+    return currentUser.role === "boyfriend" ? "girlfriend" : "boyfriend";
+  }
+
+  function dqRender() {
+    if (!dqCard) return;
+    dqDate.textContent = new Date().toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+    dqQuestion.textContent = todaysQuestion();
+    const mine = dqRows.find((r) => r.role === currentUser.role);
+    const theirs = dqRows.find((r) => r.role !== currentUser.role);
+    const mineAnswered = !!(mine && mine.answer);
+    const bothAnswered = mineAnswered && !!(theirs && theirs.answer);
+
+    if (mineAnswered) {
+      dqAnswer.value = mine.answer;
+      dqAnswerWrap.style.display = "none";
+      dqStatus.textContent = bothAnswered
+        ? "You both answered — here's what each of you said."
+        : `You've answered. Waiting for ${COUPLE[dqOtherRole()].name} to answer too...`;
+    } else {
+      dqAnswer.value = "";
+      dqAnswerWrap.style.display = "";
+      dqStatus.textContent = `${COUPLE[dqOtherRole()].name} ${theirs && theirs.answer ? "has answered — your turn now" : "hasn't answered yet — your turn first"}.`;
+    }
+
+    if (bothAnswered) {
+      dqReveal.classList.remove("hidden");
+      dqReveal.innerHTML = [
+        { role: "boyfriend", row: dqRows.find((r) => r.role === "boyfriend") },
+        { role: "girlfriend", row: dqRows.find((r) => r.role === "girlfriend") },
+      ]
+        .filter((x) => x.row && x.row.answer)
+        .map(
+          (x) => `
+            <div class="dq-pair">
+              <p class="dq-who">${escapeHtml(COUPLE[x.role].name)}</p>
+              <p class="dq-what">${escapeHtml(x.row.answer)}</p>
+            </div>`
+        )
+        .join("");
+    } else {
+      dqReveal.classList.add("hidden");
+      dqReveal.innerHTML = "";
+    }
+  }
+
+  async function loadDailyQ() {
+    try {
+      const { data, error } = await supabase
+        .from("daily_answers")
+        .select("*")
+        .eq("q_date", dqTodayISO());
+      if (error) throw error;
+      dqRows = data || [];
+      if (dqCard) dqCard.hidden = false;
+      if (dqOffline) dqOffline.hidden = true;
+      dqRender();
+    } catch (err) {
+      console.warn("Daily Question unavailable:", err.message || err);
+      if (dqCard) dqCard.hidden = true;
+      if (dqOffline) dqOffline.hidden = false;
+    }
+  }
+
+  function subscribeDailyQ() {
+    try {
+      supabase
+        .channel("daily-q-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "daily_answers" },
+          () => loadDailyQ()
+        )
+        .subscribe();
+    } catch (_) {}
+  }
+
+  if (dqSubmit) {
+    dqSubmit.addEventListener("click", async () => {
+      if (!currentUser) return;
+      const val = dqAnswer.value.trim();
+      if (!val) {
+        showToast("Write an answer first, love");
+        return;
+      }
+      dqSubmit.disabled = true;
+      try {
+        const { error } = await supabase
+          .from("daily_answers")
+          .upsert(
+            {
+              q_date: dqTodayISO(),
+              role: currentUser.role,
+              question: todaysQuestion(),
+              answer: val,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "q_date,role" }
+          );
+        if (error) throw error;
+        showToast("Answer saved");
+        await loadDailyQ();
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || "Could not save your answer");
+      } finally {
+        dqSubmit.disabled = false;
+      }
+    });
+  }
+
+  function initDailyQuestion() {
+    if (!currentUser) return;
+    subscribeDailyQ();
+    loadDailyQ();
+  }
+
+  /* ---------- Love Streak ---------- */
+  const streakOffline = $("#streakOffline");
+  const streakWrap = $("#streakWrap");
+  const streakCount = $("#streakCount");
+  const streakSub = $("#streakSub");
+  const streakCheckin = $("#streakCheckin");
+  const moodPicker = $("#moodPicker");
+  const streakNote = $("#streakNote");
+  const streakSend = $("#streakSend");
+  const streakStatus = $("#streakStatus");
+  const streakHistory = $("#streakHistory");
+  const MOODS = ["💖", "😊", "🥰", "😌", "🤩", "😢", "😩", "🥱"];
+  let selectedMood = MOODS[0];
+  let streakRows = [];
+
+  function toISODate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  function todayISO() {
+    return toISODate(new Date());
+  }
+
+  function computeStreak(rows) {
+    if (!rows.length) return 0;
+    const index = new Map(rows.map((r) => [r.checkin_date, true]));
+    const d = new Date();
+    const cursor = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (!index.has(toISODate(cursor))) cursor.setDate(cursor.getDate() - 1);
+    let streak = 0;
+    while (index.has(toISODate(cursor))) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function renderStreak() {
+    if (!streakCount || !streakSub) return;
+    const fire = computeStreak(streakRows);
+    streakCount.textContent = `${fire} day streak` + (fire > 0 ? " 🔥" : "");
+    streakSub.textContent =
+      fire > 0
+        ? "The flame is alive — check in tomorrow too!"
+        : "Check in today to start our streak <3";
+  }
+
+  function renderStreakHistory() {
+    if (!streakHistory) return;
+    if (!streakRows.length) {
+      streakHistory.innerHTML = `<p class="streak-empty">No check-ins yet — be the first to start our little diary.</p>`;
+      return;
+    }
+    const sorted = [...streakRows].sort((a, b) => (a.checkin_date < b.checkin_date ? 1 : -1));
+    streakHistory.innerHTML = sorted
+      .map((r) => {
+        const who = r.role === "boyfriend" ? COUPLE.boyfriend.name : COUPLE.girlfriend.name;
+        const d = new Date(r.checkin_date + "T00:00:00");
+        const label = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+        return `<div class="streak-day">
+          <div class="streak-day-head">
+            <span class="streak-day-mood">${escapeHtml(r.mood)}</span>
+            <span class="streak-day-date">${escapeHtml(label)} · ${escapeHtml(who)}</span>
+          </div>
+          <p class="streak-day-note">${escapeHtml(r.note || "")}</p>
+        </div>`;
+      })
+      .join("");
+  }
+
+  async function loadStreakCheckins() {
+    try {
+      const { data, error } = await supabase
+        .from("streak_checkins")
+        .select("*")
+        .order("checkin_date", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      streakRows = data || [];
+      streakWrap.hidden = false;
+      streakOffline.hidden = true;
+      renderStreak();
+      renderStreakHistory();
+    } catch (err) {
+      console.warn("Love Streak unavailable:", err.message || err);
+      streakWrap.hidden = true;
+      streakOffline.hidden = false;
+    }
+  }
+
+  function subscribeStreak() {
+    try {
+      supabase
+        .channel("streak-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "streak_checkins" },
+          () => loadStreakCheckins()
+        )
+        .subscribe();
+    } catch (_) {}
+  }
+
+  function bindMoodPicker() {
+    if (!moodPicker) return;
+    moodPicker.querySelectorAll(".mood-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.mood === selectedMood);
+      btn.addEventListener("click", () => {
+        moodPicker.querySelectorAll(".mood-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedMood = btn.dataset.mood;
+      });
+    });
+  }
+
+  if (streakSend) {
+    streakSend.addEventListener("click", async () => {
+      if (!currentUser) return;
+      const note = streakNote.value.trim();
+      if (!note) {
+        showToast("Write one line about your day first");
+        return;
+      }
+      streakSend.disabled = true;
+      try {
+        const { error } = await supabase
+          .from("streak_checkins")
+          .upsert(
+            {
+              checkin_date: todayISO(),
+              role: currentUser.role,
+              mood: selectedMood,
+              note,
+            },
+            { onConflict: "checkin_date,role" }
+          );
+        if (error) throw error;
+        showToast("Checked in — thanks for sharing today");
+        await loadStreakCheckins();
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || "Could not save your check-in");
+      } finally {
+        streakSend.disabled = false;
+      }
+    });
+  }
+
+  function initLoveStreak() {
+    if (!currentUser) return;
+    bindMoodPicker();
+    subscribeStreak();
+    loadStreakCheckins();
+  }
+
+  /* ---------- Bucket List ---------- */
+  const bucketOffline = $("#bucketOffline");
+  const bucketWrap = $("#bucketWrap");
+  const bucketInput = $("#bucketInput");
+  const bucketCategory = $("#bucketCategory");
+  const bucketAdd = $("#bucketAdd");
+  const bucketGroups = $("#bucketGroups");
+  const BUCKET_CATEGORIES = ["travel", "food", "adventures", "simple"];
+  const BUCKET_LABELS = { travel: "Travel", food: "Food", adventures: "Adventures", simple: "Simple Joys" };
+  const BUCKET_EMOJI = { travel: "✈️", food: "🍜", adventures: "🎢", simple: "🌼" };
+  let bucketRows = [];
+
+  function renderBucket() {
+    if (!bucketGroups) return;
+    const groups = BUCKET_CATEGORIES.map((cat) => {
+      const items = bucketRows.filter((r) => r.category === cat);
+      if (!items.length) return "";
+      const done = items.filter((i) => i.done).length;
+      return `<div class="bucket-group">
+        <div class="bucket-group-head">
+          <h3 class="bucket-cat">${BUCKET_EMOJI[cat]} ${BUCKET_LABELS[cat]}</h3>
+          <span class="bucket-progress">${done}/${items.length} done</span>
+        </div>
+        <div class="bucket-list">
+          ${items
+            .map(
+              (r) => `<div class="bucket-item ${r.done ? "done" : ""}" data-id="${r.id}" data-done="${r.done}">
+            <button class="bucket-check" type="button" data-bucket title="${r.done ? "Mark not done" : "Mark done"}">${r.done ? "✓" : ""}</button>
+            <span class="bucket-title">${escapeHtml(r.title)}</span>
+            <button class="bucket-del" type="button" data-bucket-del title="Remove">${DELETE_ICON}</button>
+          </div>`
+            )
+            .join("")}
+        </div>
+      </div>`;
+    }).join("");
+    bucketGroups.innerHTML = groups || `<p class="bucket-empty">No dreams yet — add the first one!</p>`;
+  }
+
+  function toggleBucket(id, done) {
+    const item = bucketRows.find((r) => r.id === id);
+    if (!item) return;
+    const firstTimeDone = done && !item.done;
+    item.done = done;
+    item.done_by = done ? (currentUser ? currentUser.role : null) : null;
+    item.done_at = done ? new Date().toISOString() : null;
+    supabase
+      .from("bucket_items")
+      .update({ done, done_by: item.done_by, done_at: item.done_at })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          showToast("Could not update the item");
+          return;
+        }
+        if (firstTimeDone) {
+          burstHearts();
+          showToast("Bucket list dream achieved!");
+        }
+      });
+  }
+
+  function deleteBucketItem(id) {
+    supabase
+      .from("bucket_items")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          showToast("Could not remove the item");
+          return;
+        }
+        loadBucketItems();
+        showToast("Removed from the bucket list");
+      });
+  }
+
+  if (bucketGroups) {
+    bucketGroups.addEventListener("click", (e) => {
+      const itemEl = e.target.closest(".bucket-item");
+      if (!itemEl) return;
+      const id = itemEl.dataset.id;
+      if (e.target.closest("[data-bucket-del]")) {
+        openConfirmDialog({
+          title: "Remove dream",
+          message: `Remove "${bucketRows.find((r) => r.id === id)?.title || ""}" from the bucket list?`,
+          onConfirm: () => deleteBucketItem(id),
+        });
+      } else if (e.target.closest("[data-bucket]")) {
+        toggleBucket(id, !itemEl.classList.contains("done"));
+      }
+    });
+  }
+
+  function bindBucketAdd() {
+    if (!bucketAdd) return;
+    bucketAdd.addEventListener("click", () => {
+      const title = bucketInput.value.trim();
+      if (!title) {
+        showToast("Type a dream first, love");
+        return;
+      }
+      const category = bucketCategory.value;
+      supabase
+        .from("bucket_items")
+        .insert({ title, category })
+        .then(({ error }) => {
+          if (error) throw error;
+          bucketInput.value = "";
+          loadBucketItems();
+          showToast("Added to our bucket list");
+        })
+        .catch((err) => {
+          console.error(err);
+          showToast(err.message || "Could not add the item");
+        });
+    });
+    bucketInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") bucketAdd.click();
+    });
+  }
+
+  async function loadBucketItems() {
+    try {
+      const { data, error } = await supabase
+        .from("bucket_items")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      bucketRows = data || [];
+      if (bucketWrap) bucketWrap.hidden = false;
+      if (bucketOffline) bucketOffline.hidden = true;
+      renderBucket();
+    } catch (err) {
+      console.warn("Bucket List unavailable:", err.message || err);
+      if (bucketWrap) bucketWrap.hidden = true;
+      if (bucketOffline) bucketOffline.hidden = false;
+    }
+  }
+
+  function subscribeBucket() {
+    try {
+      supabase
+        .channel("bucket-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "bucket_items" },
+          () => loadBucketItems()
+        )
+        .subscribe();
+    } catch (_) {}
+  }
+
+  function initBucketList() {
+    if (!currentUser) return;
+    bindBucketAdd();
+    subscribeBucket();
+    loadBucketItems();
+  }
+
+  /* ---------- This or That ---------- */
+  const THIS_OR_THAT = [
+    { key: "beach", a: "Beach", b: "Mountains" },
+    { key: "city", a: "City life", b: "Country life" },
+    { key: "sunrise", a: "Sunrise", b: "Sunset" },
+    { key: "sweet", a: "Sweet snacks", b: "Salty snacks" },
+    { key: "lazy", a: "Lazy day in", b: "Spontaneous adventure" },
+    { key: "warm", a: "Warm weather", b: "Cold weather" },
+    { key: "movies", a: "Movie night", b: "Game night" },
+    { key: "food", a: "Street food", b: "Fancy dinner" },
+    { key: "coffee", a: "Coffee", b: "Tea" },
+    { key: "sing", a: "Sing together", b: "Dance together" },
+    { key: "summer", a: "Summer trips", b: "Winter coziness" },
+    { key: "instant", a: "Plan everything", b: "Wing it" },
+    { key: "dog", a: "Dogs", b: "Cats" },
+    { key: "shower", a: "Rainy day", b: "Sunny day" },
+    { key: "texting", a: "Long texts", b: "Phone calls" },
+    { key: "gifts", a: "Giving gifts", b: "Receiving gifts" },
+    { key: "cook", a: "Cook together", b: "Order in" },
+    { key: "nature", a: "Forest walks", b: "City lights" },
+  ];
+  const ttOffline = $("#ttOffline");
+  const ttWrap = $("#ttWrap");
+  const ttProgress = $("#ttProgress");
+  const ttCard = $("#ttCard");
+  const ttQuestion = $("#ttQuestion");
+  const ttA = $("#ttA");
+  const ttB = $("#ttB");
+  const ttReveal = $("#ttReveal");
+  const ttAnswers = $("#ttAnswers");
+  const ttOptionBtns = $$(".tt-option");
+  const TOT_DAILY_COUNT = 5;
+  let ttRows = [];
+  let ttDaily = [];
+
+  function ttDay() {
+    const d = new Date();
+    const seed = d.getFullYear() * 1000 + (d.getMonth() + 1) * 100 + d.getDate();
+    const count = Math.min(TOT_DAILY_COUNT, THIS_OR_THAT.length);
+    const pool = [...THIS_OR_THAT];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = (seed + i) % (i + 1);
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, count);
+  }
+
+  function ttRender() {
+    if (!ttCard) return;
+    const pick = ttDaily[ttIndex];
+    if (!pick) {
+      ttWrap.hidden = true;
+      return;
+    }
+    ttQuestion.textContent = pick.a + " or " + pick.b + "?";
+    ttA.textContent = pick.a;
+    ttB.textContent = pick.b;
+    ttProgress.innerHTML = ttDaily
+      .map((p, i) => `<span class="tt-dot ${i < ttIndex ? "done" : ""} ${i === ttIndex ? "current" : ""}"></span>`)
+      .join("");
+    const mine = ttRows.find((r) => r.prompt_key === pick.key && r.role === currentUser.role);
+    ttOptionBtns.forEach((b) => b.classList.toggle("active", mine && mine.pick === b.dataset.pick));
+    const theirs = ttRows.find((r) => r.prompt_key === pick.key && r.role !== currentUser.role);
+    ttReveal.hidden = !(mine && theirs);
+    if (mine && theirs) {
+      ttAnswers.classList.remove("hidden");
+      ttAnswers.innerHTML = [
+        { role: currentUser.role, pick: mine.pick },
+        { role: theirs.role, pick: theirs.pick },
+      ]
+        .map((x) => {
+          const who = COUPLE[x.role].name;
+          const label = x.pick === "A" ? pick.a : pick.b;
+          const match = mine.pick === theirs.pick;
+          return `<div class="tt-answer ${match ? "match" : ""}">
+            <p class="tt-who">${escapeHtml(who)} ${match ? "♥" : ""}</p>
+            <p class="tt-pick">${escapeHtml(label)}</p>
+          </div>`;
+        })
+        .join("");
+    } else {
+      ttAnswers.classList.add("hidden");
+      ttAnswers.innerHTML = "";
+    }
+  }
+
+  function ttSetIndex(i) {
+    ttIndex = ((i % ttDaily.length) + ttDaily.length) % ttDaily.length;
+    ttRender();
+  }
+
+  function ttSave(pick) {
+    const item = ttDaily[ttIndex];
+    if (!item || !currentUser) return;
+    const existing = ttRows.find((r) => r.prompt_key === item.key && r.role === currentUser.role);
+    supabase
+      .from("this_or_that")
+      .upsert(
+        {
+          q_date: todayISO(),
+          prompt_key: item.key,
+          prompt: `${item.a} or ${item.b}`,
+          role: currentUser.role,
+          pick,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "q_date,prompt_key,role" }
+      )
+      .then(({ error }) => {
+        if (error) throw error;
+        showToast(existing ? "Answer updated" : "Picked — nice!");
+        return loadThisOrThat();
+      })
+      .then(() => {
+        const item2 = ttDaily[ttIndex];
+        const theirs = ttRows.find((r) => r.prompt_key === item2.key && r.role !== currentUser.role);
+        if (theirs) {
+          ttSetIndex(ttIndex + 1);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        showToast(err.message || "Could not save your pick");
+      });
+  }
+
+  if (ttCard) {
+    ttOptionBtns.forEach((btn) => {
+      btn.addEventListener("click", () => ttSave(btn.dataset.pick));
+    });
+    ttReveal.addEventListener("click", () => {
+      ttSetIndex(ttIndex + 1);
+    });
+  }
+
+  let ttIndex = 0;
+
+  async function loadThisOrThat() {
+    try {
+      const { data, error } = await supabase
+        .from("this_or_that")
+        .select("*")
+        .eq("q_date", todayISO());
+      if (error) throw error;
+      ttRows = data || [];
+      ttWrap.hidden = false;
+      ttOffline.hidden = true;
+      ttRender();
+    } catch (err) {
+      console.warn("This or That unavailable:", err.message || err);
+      ttWrap.hidden = true;
+      ttOffline.hidden = false;
+    }
+  }
+
+  function subscribeThisOrThat() {
+    try {
+      supabase
+        .channel("tt-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "this_or_that" },
+          () => loadThisOrThat()
+        )
+        .subscribe();
+    } catch (_) {}
+  }
+
+  function initThisOrThat() {
+    if (!currentUser) return;
+    ttDaily = ttDay();
+    subscribeThisOrThat();
+    loadThisOrThat();
+  }
+
+  /* ---------- Map of Our Places ---------- */
+  const placesOffline = $("#placesOffline");
+  const placesWrap = $("#placesWrap");
+  const placesMapEl = $("#placesMap");
+  const placeSearch = $("#placeSearch");
+  const placeWhen = $("#placeWhen");
+  const placeAdd = $("#placeAdd");
+  const placeNote = $("#placeNote");
+  const placesHint = $("#placesHint");
+  const placesList = $("#placesList");
+  let placesMap = null;
+  let placeMarkers = [];
+  let placeRows = [];
+
+  function initPlacesMap() {
+    if (!window.L || !placesMapEl) return;
+    placesMap = L.map("placesMap", { zoomControl: true, attributionControl: true }).setView([16.0471, 108.2067], 6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(placesMap);
+    setTimeout(() => placesMap.invalidateSize(), 300);
+  }
+
+  function placeMarkerIcon() {
+    return L.divIcon({
+      className: "",
+      html: `<div class="place-marker"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.5C.5 8.5 2 4.5 6 3.5c2.4-.6 4.5.3 6 2 1.5-1.7 3.6-2.6 6-2 4 1 5.5 5 4 8C19.5 16.1 12 21 12 21z"/></svg></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -28],
+    });
+  }
+
+  function renderPlaceMarkers() {
+    if (!placesMap) return;
+    placeMarkers.forEach((m) => placesMap.removeLayer(m));
+    placeMarkers = [];
+    placeRows.forEach((place) => {
+      const marker = L.marker([place.latitude, place.longitude], { icon: placeMarkerIcon() })
+        .addTo(placesMap)
+        .bindPopup(`<b>${escapeHtml(place.label)}</b>${place.note ? `<br>${escapeHtml(place.note)}` : ""}${place.when_at ? `<br><em>${escapeHtml(place.when_at)}</em>` : ""}`);
+      marker.on("click", () => marker.openPopup());
+      placeMarkers.push(marker);
+    });
+  }
+
+  function renderPlacesList() {
+    if (!placesList) return;
+    if (!placeRows.length) {
+      placesList.innerHTML = `<p class="places-list-empty">No pins yet — search a place to start our map.</p>`;
+      return;
+    }
+    placesList.innerHTML = placeRows
+      .slice()
+      .reverse()
+      .map(
+        (p) => `<div class="place-row" data-id="${p.id}">
+          <div class="place-row-head">
+            <span class="place-row-title">${escapeHtml(p.label)}</span>
+            <button class="place-del" type="button" data-place-del title="Remove">${DELETE_ICON}</button>
+          </div>
+          ${p.when_at ? `<p class="place-row-meta">${escapeHtml(p.when_at)}</p>` : ""}
+          ${p.note ? `<p class="place-row-note">${escapeHtml(p.note)}</p>` : ""}
+        </div>`
+      )
+      .join("");
+  }
+
+  function flyToPlace(place) {
+    if (!placesMap) return;
+    placesMap.flyTo([place.latitude, place.longitude], 13, { duration: 1.2 });
+  }
+
+  async function geocode(query) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+    if (!res.ok) throw new Error("Geocoding failed");
+    const results = await res.json();
+    if (!results.length) return null;
+    return { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+  }
+
+  async function renderPlaces() {
+    renderPlaceMarkers();
+    renderPlacesList();
+  }
+
+  if (placeAdd) {
+    placeAdd.addEventListener("click", async () => {
+      if (!currentUser) return;
+      const query = placeSearch.value.trim();
+      if (!query) {
+        showToast("Type a place to search first, love");
+        return;
+      }
+      placeAdd.disabled = true;
+      placesHint.textContent = "Searching...";
+      try {
+        const coord = await geocode(query);
+        if (!coord) {
+          placesHint.textContent = "Couldn't find that place — try a more specific name.";
+          return;
+        }
+        const { error } = await supabase.from("our_places").insert({
+          label: query,
+          note: placeNote.value.trim(),
+          when_at: placeWhen.value || null,
+          latitude: coord.lat,
+          longitude: coord.lon,
+        });
+        if (error) throw error;
+        placeSearch.value = "";
+        placeNote.value = "";
+        placeWhen.value = "";
+        placesHint.textContent = "Pinned! It's on our map now.";
+        await loadPlaces();
+        flyToPlace({ latitude: coord.lat, longitude: coord.lon });
+      } catch (err) {
+        console.error(err);
+        placesHint.textContent = err.message || "Could not pin that place";
+      } finally {
+        placeAdd.disabled = false;
+      }
+    });
+    placeSearch.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") placeAdd.click();
+    });
+  }
+
+  if (placesList) {
+    placesList.addEventListener("click", (e) => {
+      const del = e.target.closest("[data-place-del]");
+      const row = e.target.closest(".place-row");
+      if (del && del.dataset.placeDel) {
+        const id = del.dataset.placeDel;
+        openConfirmDialog({
+          title: "Remove place",
+          message: "Remove this spot from our map?",
+          onConfirm: () => deletePlace(id),
+        });
+      } else if (row && row.dataset.id) {
+        const place = placeRows.find((p) => p.id === row.dataset.id);
+        if (place) flyToPlace(place);
+      }
+    });
+  }
+
+  function deletePlace(id) {
+    supabase
+      .from("our_places")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          showToast("Could not remove the place");
+          return;
+        }
+        loadPlaces();
+        showToast("Removed from our map");
+      });
+  }
+
+  async function loadPlaces() {
+    try {
+      const { data, error } = await supabase
+        .from("our_places")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      placeRows = data || [];
+      placesWrap.hidden = false;
+      placesOffline.hidden = true;
+      renderPlaces();
+    } catch (err) {
+      console.warn("Our Places unavailable:", err.message || err);
+      placesWrap.hidden = true;
+      placesOffline.hidden = false;
+    }
+  }
+
+  function subscribePlaces() {
+    try {
+      supabase
+        .channel("places-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "our_places" },
+          () => loadPlaces()
+        )
+        .subscribe();
+    } catch (_) {}
+  }
+
+  function initOurPlaces() {
+    if (!currentUser) return;
+    initPlacesMap();
+    subscribePlaces();
+    loadPlaces();
+  }
+
+  /* ---------- Song Favorites ---------- */
+  const songsOffline = $("#songsOffline");
+  const songsWrap = $("#songsWrap");
+  const songInput = $("#songInput");
+  const songAdd = $("#songAdd");
+  const songSurprise = $("#songSurprise");
+  const songNow = $("#songNow");
+  const songNowLabel = $("#songNowLabel");
+  const songsList = $("#songsList");
+  let songRows = [];
+
+  function playSongById(id) {
+    const row = songRows.find((r) => r.id === id);
+    if (!row) return;
+    if (!row.source) {
+      showToast("No audio saved for this song yet — play it yourself, love");
+      return;
+    }
+    playSource(row.source);
+    songNowLabel.textContent = "♪ " + (row.title || trackLabel(row.source));
+    songNow.hidden = false;
+  }
+
+  function playSource(src) {
+    if (!musicTracks.length) return;
+    const idx = musicTracks.indexOf(src);
+    if (idx > -1) {
+      musicTrackIndex = idx;
+      musicAudio.src = musicTracks[idx];
+    } else {
+      musicAudio.src = src;
+    }
+    if (musicOn) {
+      musicAudio.play().catch(() => {});
+    } else {
+      playMusic();
+    }
+    setNowPlaying();
+  }
+
+  function renderSongs() {
+    if (!songsList) return;
+    if (!songRows.length) {
+      songsList.innerHTML = `<p class="songs-empty">No songs yet — add the first one that sounds like us.</p>`;
+      return;
+    }
+    songsList.innerHTML = songRows
+      .map((r) => {
+        const who = r.added_by ? COUPLE[r.added_by]?.name || "Us" : "Us";
+        return `<div class="song-item" data-id="${r.id}">
+          <button class="song-play" type="button" data-song-play title="Play this song"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14l11-7-11-7z"/></svg></button>
+          <div class="song-title">
+            <p class="song-name">${escapeHtml(r.title || trackLabel(r.source))}</p>
+            <p class="song-meta">added by ${escapeHtml(who)}</p>
+          </div>
+          <button class="song-del" type="button" data-song-del title="Remove">${DELETE_ICON}</button>
+        </div>`;
+      })
+      .join("");
+  }
+
+  if (songAdd) {
+    songAdd.addEventListener("click", () => {
+      const title = songInput.value.trim();
+      if (!title) {
+        showToast("Type a song title first");
+        return;
+      }
+      let source = "";
+      const match = musicTracks.find((t) => trackLabel(t).toLowerCase().includes(title.toLowerCase()));
+      if (match) source = match;
+      supabase
+        .from("song_favorites")
+        .insert({ title, source, added_by: currentUser ? currentUser.role : null })
+        .then(({ error }) => {
+          if (error) throw error;
+          songInput.value = "";
+          loadSongs();
+          showToast(match ? "Added — found its audio too" : "Added to our songs");
+        })
+        .catch((err) => {
+          console.error(err);
+          showToast(err.message || "Could not add the song");
+        });
+    });
+    songInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") songAdd.click();
+    });
+  }
+
+  if (songSurprise) {
+    songSurprise.addEventListener("click", () => {
+      if (!songRows.length) {
+        showToast("Add a song first, then let's surprise each other");
+        return;
+      }
+      const playable = songRows.filter((r) => r.source);
+      const pool = playable.length ? playable : songRows;
+      const row = pool[Math.floor(Math.random() * pool.length)];
+      if (!row.source) {
+        songNowLabel.textContent = "♪ " + (row.title || "our song");
+        songNow.hidden = false;
+        showToast("Surprise! Play this one yourself — it's a favorite");
+        return;
+      }
+      playSource(row.source);
+      songNowLabel.textContent = "♪ " + (row.title || trackLabel(row.source));
+      songNow.hidden = false;
+      burstHearts();
+    });
+  }
+
+  if (songsList) {
+    songsList.addEventListener("click", (e) => {
+      const itemEl = e.target.closest(".song-item");
+      if (!itemEl) return;
+      const id = itemEl.dataset.id;
+      if (e.target.closest("[data-song-play]")) {
+        playSongById(id);
+      } else if (e.target.closest("[data-song-del]")) {
+        openConfirmDialog({
+          title: "Remove song",
+          message: `Remove "${songRows.find((r) => r.id === id)?.title || "this song"}" from our playlist?`,
+          onConfirm: () => deleteSong(id),
+        });
+      }
+    });
+  }
+
+  function deleteSong(id) {
+    supabase
+      .from("song_favorites")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          console.error(error);
+          showToast("Could not remove the song");
+          return;
+        }
+        loadSongs();
+        showToast("Removed from our songs");
+      });
+  }
+
+  async function loadSongs() {
+    try {
+      const { data, error } = await supabase
+        .from("song_favorites")
+        .select("*")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      songRows = data || [];
+      songsWrap.hidden = false;
+      songsOffline.hidden = true;
+      renderSongs();
+    } catch (err) {
+      console.warn("Song Favorites unavailable:", err.message || err);
+      songsWrap.hidden = true;
+      songsOffline.hidden = false;
+    }
+  }
+
+  function subscribeSongs() {
+    try {
+      supabase
+        .channel("songs-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "song_favorites" },
+          () => loadSongs()
+        )
+        .subscribe();
+    } catch (_) {}
+  }
+
+  function initSongFavorites() {
+    if (!currentUser) return;
+    subscribeSongs();
+    loadSongs();
+  }
+
   /* ---------- Dating + notifications (couple features) ---------- */
   const datesOffline = $("#datesOffline");
   const datesDashboard = $("#datesDashboard");
@@ -3429,6 +4653,12 @@
     loadNotifications();
     subscribeDateRequests();
     subscribeCoupleNotifications();
+    initDailyQuestion();
+    initLoveStreak();
+    initBucketList();
+    initThisOrThat();
+    initOurPlaces();
+    initSongFavorites();
   }
 
   /* ---------- Init ---------- */
@@ -3439,6 +4669,7 @@
   loadVideos();
   subscribeToVideos();
   initNotes();
+  initOnThisDay();
   if (window.emailjs) initEmail();
   setImportance("special");
   if (currentUser) {

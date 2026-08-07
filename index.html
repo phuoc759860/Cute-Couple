@@ -160,6 +160,18 @@
     </a>
   </section>
 
+  <!-- On This Day -->
+  <section class="on-this-day" id="onThisDay" hidden>
+    <div class="otd-card">
+      <button class="otd-shuffle" id="otdShuffle" type="button" title="Show another memory" aria-label="Show another memory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <p class="otd-eyebrow" id="otdEyebrow">On This Day</p>
+      <h2 class="otd-label" id="otdLabel">A memory from before</h2>
+      <div class="otd-body" id="otdBody"></div>
+    </div>
+  </section>
+
   <!-- Gallery -->
   <section class="gallery" id="gallery">
     <div class="section-head">
@@ -323,6 +335,191 @@
         <span class="anniversary-pill"><strong id="annivDays">0</strong> days to go</span>
         <span class="anniversary-pill"><strong id="annivTogether">0</strong> days together</span>
       </div>
+    </div>
+  </section>
+
+  <!-- Daily Question -->
+  <section class="daily-q" id="dailyQ">
+    <div class="section-head">
+      <p class="section-eyebrow">Daily Question</p>
+      <h2 class="section-title">One Question, <span class="accent">Two Answers</span></h2>
+      <p class="section-sub">We answer the same question each day — and once we both do, our answers are revealed to each other.</p>
+    </div>
+
+    <div class="daily-q-offline" id="dailyQOffline" hidden>
+      The Daily Question isn't connected yet — run supabase-love-features-setup.sql to switch it on.
+    </div>
+
+    <div class="dq-card" id="dqCard">
+      <p class="dq-date" id="dqDate"></p>
+      <h3 class="dq-question" id="dqQuestion">Loading today's question...</h3>
+      <div class="dq-answer" id="dqAnswerWrap">
+        <label class="dq-label" for="dqAnswer">Your private answer</label>
+        <textarea id="dqAnswer" rows="3" maxlength="280" placeholder="Write your answer — they won't see it until you've both answered..."></textarea>
+        <button class="btn btn-primary" id="dqSubmit" type="button">Send My Answer</button>
+      </div>
+      <p class="dq-status" id="dqStatus"></p>
+      <div class="dq-reveal" id="dqReveal"></div>
+    </div>
+  </section>
+
+  <!-- Love Streak -->
+  <section class="love-streak" id="loveStreak">
+    <div class="section-head">
+      <p class="section-eyebrow">Love Streak</p>
+      <h2 class="section-title">Checking In, <span class="accent">Every Day</span></h2>
+      <p class="section-sub">A tiny shared diary — tell each other how you feel today with a mood and one line.</p>
+    </div>
+
+    <div class="streak-offline" id="streakOffline" hidden>
+      The Love Streak isn't connected yet — run supabase-love-features-setup.sql to switch it on.
+    </div>
+
+    <div class="streak-wrap" id="streakWrap">
+      <div class="streak-banner">
+        <span class="streak-flame">🔥</span>
+        <div>
+          <p class="streak-emoji" id="streakCount">0 day streak</p>
+          <p class="streak-sub" id="streakSub">Check in today to keep the flame alive</p>
+        </div>
+      </div>
+
+      <div class="streak-checkin" id="streakCheckin">
+        <p class="streak-ask">How are you feeling today?</p>
+        <div class="mood-picker" id="moodPicker">
+          <button type="button" class="mood-btn" data-mood="💖">💖</button>
+          <button type="button" class="mood-btn" data-mood="😊">😊</button>
+          <button type="button" class="mood-btn" data-mood="🥰">🥰</button>
+          <button type="button" class="mood-btn" data-mood="😌">😌</button>
+          <button type="button" class="mood-btn" data-mood="🤩">🤩</button>
+          <button type="button" class="mood-btn" data-mood="😢">😢</button>
+          <button type="button" class="mood-btn" data-mood="😩">😩</button>
+          <button type="button" class="mood-btn" data-mood="🥱">🥱</button>
+        </div>
+        <input type="text" id="streakNote" maxlength="140" placeholder="One line about today..." autocomplete="off" />
+        <button class="btn btn-primary" id="streakSend" type="button">Check In</button>
+      </div>
+
+      <p class="streak-status" id="streakStatus"></p>
+
+      <div class="streak-history" id="streakHistory"></div>
+    </div>
+  </section>
+
+  <!-- Bucket List -->
+  <section class="bucket" id="bucket">
+    <div class="section-head">
+      <p class="section-eyebrow">Bucket List</p>
+      <h2 class="section-title">Things We'll <span class="accent">Do Together</span></h2>
+      <p class="section-sub">Dream big, check things off, and celebrate with a little heart confetti.</p>
+    </div>
+
+    <div class="bucket-offline" id="bucketOffline" hidden>
+      The Bucket List isn't connected yet — run supabase-love-features-setup.sql to switch it on.
+    </div>
+
+    <div class="bucket-wrap" id="bucketWrap">
+      <div class="bucket-add">
+        <input type="text" id="bucketInput" maxlength="90" placeholder="Add something we should do together..." autocomplete="off" />
+        <select id="bucketCategory">
+          <option value="travel">Travel</option>
+          <option value="food">Food</option>
+          <option value="adventures">Adventures</option>
+          <option value="simple">Simple Joys</option>
+        </select>
+        <button class="btn btn-primary" id="bucketAdd" type="button">Add</button>
+      </div>
+
+      <div class="bucket-groups" id="bucketGroups"></div>
+    </div>
+  </section>
+
+  <!-- This or That -->
+  <section class="this-that" id="thisThat">
+    <div class="section-head">
+      <p class="section-eyebrow">This or That</p>
+      <h2 class="section-title">Pick Your <span class="accent">Side</span></h2>
+      <p class="section-sub">A fun little quiz — answer the same picks, then see your answers side by side.</p>
+    </div>
+
+    <div class="tt-offline" id="ttOffline" hidden>
+      This or That isn't connected yet — run supabase-love-features-setup.sql to switch it on.
+    </div>
+
+    <div class="tt-wrap" id="ttWrap">
+      <div class="tt-progress" id="ttProgress"></div>
+      <div class="tt-card" id="ttCard">
+        <h3 class="tt-question" id="ttQuestion"></h3>
+        <div class="tt-options">
+          <button class="tt-option" type="button" data-pick="A"><span class="tt-letter">A</span><span class="tt-label" id="ttA"></span></button>
+          <span class="tt-versus">vs</span>
+          <button class="tt-option" type="button" data-pick="B"><span class="tt-letter">B</span><span class="tt-label" id="ttB"></span></button>
+        </div>
+        <button class="btn btn-ghost tt-reveal" id="ttReveal" type="button" hidden>Reveal Both Answers</button>
+      </div>
+      <div class="tt-answers" id="ttAnswers"></div>
+    </div>
+  </section>
+
+  <!-- Map of Our Places -->
+  <section class="our-places" id="ourPlaces">
+    <div class="section-head">
+      <p class="section-eyebrow">Our Places</p>
+      <h2 class="section-title">Where Our <span class="accent">Story Lives</span></h2>
+      <p class="section-sub">Pin the spots that matter — the places we've been, met, and fallen deeper.</p>
+    </div>
+
+    <div class="places-offline" id="placesOffline" hidden>
+      Map of Our Places isn't connected yet — run supabase-love-features-setup.sql to switch it on.
+    </div>
+
+    <div class="places-wrap" id="placesWrap">
+      <div class="places-layout">
+        <div id="placesMap" class="places-map"></div>
+        <aside class="places-side">
+          <div class="places-add">
+            <input type="search" id="placeSearch" placeholder="Search a place (e.g. Da Nang beach)" autocomplete="off" />
+            <div class="places-add-row">
+              <input type="date" id="placeWhen" aria-label="When" />
+              <button class="btn btn-primary" id="placeAdd" type="button">Pin It</button>
+            </div>
+            <textarea id="placeNote" rows="2" maxlength="140" placeholder="What happened here? (optional)"></textarea>
+            <p class="places-hint" id="placesHint">Type a place, pick when, and tap "Pin It".</p>
+          </div>
+          <div class="places-list" id="placesList"></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- Song Favorites -->
+  <section class="song-faves" id="songFaves">
+    <div class="section-head">
+      <p class="section-eyebrow">Our Songs</p>
+      <h2 class="section-title">Songs That Sound <span class="accent">Like Us</span></h2>
+      <p class="section-sub">A shared playlist of the songs that make us feel something — tap "Surprise us" to let one play.</p>
+    </div>
+
+    <div class="songs-offline" id="songsOffline" hidden>
+      Song Favorites isn't connected yet — run supabase-love-features-setup.sql to switch it on.
+    </div>
+
+    <div class="songs-wrap" id="songsWrap">
+      <div class="songs-add">
+        <input type="text" id="songInput" maxlength="80" placeholder="Song title (e.g. Circles — Post Malone)" autocomplete="off" />
+        <button class="btn btn-primary" id="songAdd" type="button">Add Song</button>
+        <button class="btn btn-ghost" id="songSurprise" type="button" title="Surprise me">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.7L19 10l-5.1 1.3L12 17l-1.9-5.7L5 10l5.1-1.3z"/><path d="M19 15l.9 2.6L22 18.5l-2.1.9L19 22l-.9-2.6-2.1-.9 2.1-.9z"/></svg>
+          Surprise me
+        </button>
+      </div>
+
+      <div class="song-now" id="songNow" hidden>
+        <span class="song-now-emoji">♪</span>
+        <span id="songNowLabel"></span>
+      </div>
+
+      <div class="songs-list" id="songsList"></div>
     </div>
   </section>
 
@@ -809,6 +1006,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/config.js"></script>
   <script src="js/main.js"></script>
 </body>
