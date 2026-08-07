@@ -2825,6 +2825,23 @@
     installDismiss.addEventListener("pointerdown", (e) => e.stopPropagation());
   }
 
+  /* Delegated fallback: even if the direct binding above failed for any
+     reason, tapping the × or anywhere on the card still dismisses it. */
+  document.addEventListener("click", (e) => {
+    const closeBtn = e.target.closest(".install-dismiss");
+    if (closeBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      hideInstallCard();
+      localStorage.setItem("love-install-dismissed", "1");
+      return;
+    }
+    if (e.target === installCard) {
+      hideInstallCard();
+      localStorage.setItem("love-install-dismissed", "1");
+    }
+  });
+
   /* iOS fallback: the install prompt never fires there, so after a short
      delay, surface the card with instructions instead of never showing it. */
   if (isIOS && installCard && !localStorage.getItem("love-install-dismissed")) {

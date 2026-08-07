@@ -3,7 +3,7 @@
    Caches the app shell so the site opens fast and works
    (mostly) offline once visited. Versioned for clean updates.
    ===================================================== */
-const VERSION = "love-v1";
+const VERSION = "love-v2";
 const CACHE = `${VERSION}-shell`;
 
 const SHELL = [
@@ -45,16 +45,21 @@ self.addEventListener("fetch", (event) => {
   // Never intercept non-GET or cross-origin (e.g. Supabase, CDNs, fonts).
   if (request.method !== "GET" || url.origin !== location.origin) return;
 
-  // Navigations → network first, fall back to cached shell so offline still loads.
-  if (request.mode === "navigate") {
+  // Nav + core app files → network first so fixes reach users right away,
+  // falling back to cache offline.
+  const CORE_FILES = ["index.html", "css/styles.css", "js/main.js", "js/config.js"];
+  const isCore = CORE_FILES.some((f) => url.pathname.endsWith("/" + f) || (f === "index.html" && (url.pathname === "/" || url.pathname.endsWith("/"))));
+  if (request.mode === "navigate" || isCore) {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put("./index.html", copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+          }
           return res;
         })
-        .catch(() => caches.match("./index.html"))
+        .catch(() => caches.match(request))
     );
     return;
   }
