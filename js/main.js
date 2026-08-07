@@ -20,6 +20,48 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  /* ---------- In-app confirm dialog ---------- */
+  const confirmDialog = $("#confirmDialog");
+  const confirmTitle = $("#confirmTitle");
+  const confirmText = $("#confirmText");
+  const confirmOk = $("#confirmOk");
+  const confirmCancel = $("#confirmCancel");
+  let confirmCallback = null;
+
+  function openConfirmDialog(opts) {
+    const { title = "Delete", message = "Are you sure?", confirmLabel = "Delete", onConfirm } = opts || {};
+    confirmTitle.textContent = title;
+    confirmText.textContent = message;
+    confirmOk.textContent = confirmLabel;
+    confirmCallback = onConfirm || null;
+    confirmDialog.classList.add("open");
+    confirmDialog.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    confirmOk.focus();
+  }
+
+  function closeConfirmDialog() {
+    confirmDialog.classList.remove("open");
+    confirmDialog.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    confirmCallback = null;
+  }
+
+  if (confirmDialog) {
+    confirmOk.addEventListener("click", () => {
+      const cb = confirmCallback;
+      closeConfirmDialog();
+      if (cb) cb();
+    });
+    confirmCancel.addEventListener("click", closeConfirmDialog);
+    confirmDialog.addEventListener("click", (e) => {
+      if (e.target === confirmDialog) closeConfirmDialog();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && confirmDialog.classList.contains("open")) closeConfirmDialog();
+    });
+  }
+
   /* ---------- Login / site lock ---------- */
   const SESSION_KEY = "love-session";
   let currentUser = (() => {
@@ -253,7 +295,7 @@
   for (let i = 0; i < 12; i++) setTimeout(spawnHeart, i * 260);
 
   /* ---------- Days together counter ---------- */
-  const TOGETHER_DATE = new Date("2026-03-15T00:00:00").getTime();
+  const TOGETHER_DATE = new Date("2026-02-10T00:00:00").getTime();
   const daysTogetherEl = $("#daysTogether");
   let daysCounted = false;
   function updateDaysTogether() {
@@ -1043,8 +1085,11 @@
     const del = $(".card-delete", fig);
     del.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (!window.confirm("Remove this photo from the album?")) return;
-      deletePhoto(record, fig);
+      openConfirmDialog({
+        title: "Delete photo",
+        message: "Remove this photo from the album?",
+        onConfirm: () => deletePhoto(record, fig),
+      });
     });
     const edt = $(".card-edit", fig);
     edt.addEventListener("click", (e) => {
@@ -2559,8 +2604,11 @@
     const del = $(".card-delete", fig);
     del.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (!window.confirm("Remove this video from the album?")) return;
-      deleteVideo(record, fig);
+      openConfirmDialog({
+        title: "Delete video",
+        message: "Remove this video from the album?",
+        onConfirm: () => deleteVideo(record, fig),
+      });
     });
     const edt = $(".card-edit", fig);
     edt.addEventListener("click", (e) => {
@@ -2763,95 +2811,6 @@
     };
     window.visualViewport.addEventListener("resize", onVP);
     window.visualViewport.addEventListener("scroll", onVP);
-  }
-
-  /* ---------- Install app (PWA) ---------- */
-  const installCard = $("#installCard");
-  const installAppBtn = $("#installAppBtn");
-  const installDismiss = $("#installDismiss");
-  let deferredInstall = null;
-
-  function hideInstallCard() {
-    if (!installCard) return;
-    installCard.classList.remove("show");
-    installCard.setAttribute("aria-hidden", "true");
-  }
-
-  const isIOS =
-    /iP(hone|ad|od)/i.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredInstall = e;
-    if (installCard && !localStorage.getItem("love-install-dismissed")) {
-      installCard.classList.add("show");
-      installCard.setAttribute("aria-hidden", "false");
-    }
-  });
-  window.addEventListener("appinstalled", () => {
-    hideInstallCard();
-    localStorage.setItem("love-install-dismissed", "1");
-    showToast("Installed — find us on your home screen");
-  });
-  if (installAppBtn) {
-    installAppBtn.addEventListener("click", async () => {
-      if (!deferredInstall) {
-        if (isIOS) {
-          hideInstallCard();
-          localStorage.setItem("love-install-dismissed", "1");
-          showToast("Tap Share  →  Add to Home Screen", 4200);
-        } else {
-          hideInstallCard();
-          localStorage.setItem("love-install-dismissed", "1");
-          showToast("Use your browser menu: Add to Home Screen / Install app");
-        }
-        return;
-      }
-      deferredInstall.prompt();
-      await deferredInstall.userChoice.catch(() => {});
-      deferredInstall = null;
-      hideInstallCard();
-      localStorage.setItem("love-install-dismissed", "1");
-    });
-  }
-  if (installDismiss) {
-    installDismiss.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      hideInstallCard();
-      localStorage.setItem("love-install-dismissed", "1");
-    });
-    installDismiss.addEventListener("pointerdown", (e) => e.stopPropagation());
-  }
-
-  /* Delegated fallback: even if the direct binding above failed for any
-     reason, tapping the × or anywhere on the card still dismisses it. */
-  document.addEventListener("click", (e) => {
-    const closeBtn = e.target.closest(".install-dismiss");
-    if (closeBtn) {
-      e.preventDefault();
-      e.stopPropagation();
-      hideInstallCard();
-      localStorage.setItem("love-install-dismissed", "1");
-      return;
-    }
-    if (e.target === installCard) {
-      hideInstallCard();
-      localStorage.setItem("love-install-dismissed", "1");
-    }
-  });
-
-  /* iOS fallback: the install prompt never fires there, so after a short
-     delay, surface the card with instructions instead of never showing it. */
-  if (isIOS && installCard && !localStorage.getItem("love-install-dismissed")) {
-    setTimeout(() => {
-      const installed = window.matchMedia("(display-mode: standalone)").matches;
-      if (!installed) {
-        installCard.classList.add("show");
-        installCard.setAttribute("aria-hidden", "false");
-      }
-    }, 2500);
   }
 
   /* ---------- Service worker (offline app shell) ---------- */
@@ -3305,21 +3264,26 @@
   async function deleteDate(id) {
     const row = dateRows.find((r) => r.id === id);
     if (!row || !currentUser) return;
-    if (!confirm(`Delete "${row.title}"? This can't be undone.`)) return;
-    try {
-      const { error } = await supabase.from("date_requests").delete().eq("id", id);
-      if (error) throw error;
-      await pushNotification(
-        row.proposer === currentUser.role
-          ? (currentUser.role === "boyfriend" ? "girlfriend" : "boyfriend")
-          : row.proposer,
-        { type: "date", title: "Date removed", body: `"${row.title}" was removed`, href: "#dates" }
-      );
-      showToast("Date deleted");
-    } catch (err) {
-      console.error(err);
-      showToast("Could not delete the date");
-    }
+    openConfirmDialog({
+      title: "Delete date",
+      message: `Delete "${row.title}"? This can't be undone.`,
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from("date_requests").delete().eq("id", id);
+          if (error) throw error;
+          await pushNotification(
+            row.proposer === currentUser.role
+              ? (currentUser.role === "boyfriend" ? "girlfriend" : "boyfriend")
+              : row.proposer,
+            { type: "date", title: "Date removed", body: `"${row.title}" was removed`, href: "#dates" }
+          );
+          showToast("Date deleted");
+        } catch (err) {
+          console.error(err);
+          showToast("Could not delete the date");
+        }
+      },
+    });
   }
 
   [pendingList, upcomingList, historyList].forEach((list) => {

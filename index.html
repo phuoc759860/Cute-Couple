@@ -755,19 +755,6 @@
     <span id="onlineBannerText">You're offline — showing saved memories</span>
   </div>
 
-  <!-- Install app prompt -->
-  <div class="install-card" id="installCard" aria-hidden="true">
-    <div class="install-card-icon"><img src="images/icon-192.png" alt="" /></div>
-    <div class="install-card-body">
-      <p class="install-card-title">Put us on your home screen</p>
-      <p class="install-card-sub">Install Our Love Album to open it like an app, even offline.</p>
-    </div>
-    <div class="install-card-actions">
-      <button class="btn btn-primary" id="installAppBtn" type="button">Install</button>
-      <button class="install-dismiss" id="installDismiss" type="button" aria-label="Dismiss">&times;</button>
-    </div>
-  </div>
-
   <!-- Mobile bottom navigation -->
   <nav class="bottom-navbar" id="bottomNavbar" aria-label="Quick navigation">
     <button class="b bnav-item active" type="button" data-target="home" aria-label="Home">
@@ -800,6 +787,21 @@
       <span>Love</span>
     </button>
   </nav>
+
+  <!-- Confirm dialog (delete photo / video) -->
+  <div class="confirm-dialog" id="confirmDialog" aria-hidden="true">
+    <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+      <div class="confirm-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      </div>
+      <h3 id="confirmTitle">Delete</h3>
+      <p class="confirm-text" id="confirmText">Are you sure?</p>
+      <div class="confirm-actions">
+        <button class="btn" type="button" id="confirmCancel">Cancel</button>
+        <button class="btn btn-danger" type="button" id="confirmOk">Delete</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast -->
   <div class="toast" id="toast"></div>
