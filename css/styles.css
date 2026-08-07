@@ -1662,18 +1662,13 @@ section {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), background 0.3s;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.35s var(--ease), background 0.3s;
 }
 .card-delete svg {
   width: 17px;
   height: 17px;
-}
-.card:hover .card-delete,
-.card:focus-within .card-delete {
-  opacity: 1;
-  transform: translateY(0);
 }
 .card-delete:hover {
   background: var(--primary);
@@ -1703,18 +1698,13 @@ section {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), background 0.3s;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.35s var(--ease), background 0.3s;
 }
 .card-edit svg {
   width: 16px;
   height: 16px;
-}
-.card:hover .card-edit,
-.card:focus-within .card-edit {
-  opacity: 1;
-  transform: translateY(0);
 }
 .card-edit:hover {
   background: #3a3a55;
