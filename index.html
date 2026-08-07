@@ -602,6 +602,39 @@
     </div>
   </div>
 
+  <!-- Edit Photo / Video Modal -->
+  <div class="modal modal-sm" id="editModal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <button class="modal-close" id="editModalClose" aria-label="Close">&times;</button>
+      <h3 id="editModalTitle">Edit Details</h3>
+      <label class="field">
+        <span>Title</span>
+        <input type="text" id="editTitle" maxlength="60" />
+      </label>
+      <label class="field">
+        <span>Caption</span>
+        <textarea id="editDesc" rows="2" maxlength="140"></textarea>
+      </label>
+      <label class="field" id="editCategoryField" hidden>
+        <span>Category</span>
+        <select id="editCategory">
+          <option value="dates">Dates</option>
+          <option value="travel">Travel</option>
+          <option value="celebrations">Celebrations</option>
+          <option value="everyday">Everyday</option>
+        </select>
+      </label>
+      <label class="field" id="editDateField" hidden>
+        <span>Date taken</span>
+        <input type="date" id="editDate" />
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="editCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="editSave" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Add Video Modal -->
   <div class="modal" id="videoModal" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle">

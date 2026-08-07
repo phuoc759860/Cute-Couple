@@ -1011,6 +1011,10 @@
 
   const DELETE_ICON =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>';
+  const EDIT_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+  const CARD_ACTIONS =
+    '<button class="card-edit" type="button" aria-label="Edit details" title="Edit">' + EDIT_ICON + "</button><button class=\"card-delete\" type=\"button\" aria-label=\"Delete\" title=\"Delete\">" + DELETE_ICON + "</button>";
 
   function formatPhotoDate(record) {
     const d = record.taken_at
@@ -1034,13 +1038,18 @@
         <h3 class="card-title">${escapeHtml(record.title || "Our Memory")}</h3>
         <p class="card-desc">${escapeHtml(record.description || "")}</p>
       </figcaption>
-      <button class="card-delete" type="button" aria-label="Delete photo">${DELETE_ICON}</button>
+      <button class="card-actions">${CARD_ACTIONS}</button>
     `;
     const del = $(".card-delete", fig);
     del.addEventListener("click", (e) => {
       e.stopPropagation();
       if (!window.confirm("Remove this photo from the album?")) return;
       deletePhoto(record, fig);
+    });
+    const edt = $(".card-edit", fig);
+    edt.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditModal({ kind: "photo", record, cardEl: fig });
     });
     return fig;
   }
@@ -1124,6 +1133,88 @@
       showToast("Could not remove the photo");
     }
   }
+
+  /* ---------- Edit media details (photo / video) ---------- */
+  const editModal = $("#editModal");
+  const editModalClose = $("#editModalClose");
+  const editCancel = $("#editCancel");
+  const editSave = $("#editSave");
+  const editTitle = $("#editTitle");
+  const editDesc = $("#editDesc");
+  const editCategoryField = $("#editCategoryField");
+  const editCategory = $("#editCategory");
+  const editDateField = $("#editDateField");
+  const editDate = $("#editDate");
+  let editTarget = null;
+
+  function openEditModal({ kind, record, cardEl }) {
+    editTarget = { kind, record, cardEl };
+    editTitle.value = record.title || "";
+    editDesc.value = record.description || "";
+    const isPhoto = kind === "photo";
+    editCategoryField.hidden = !isPhoto;
+    editDateField.hidden = !isPhoto;
+    if (isPhoto) {
+      editCategory.value = record.category || "everyday";
+      editDate.value = record.taken_at || "";
+    }
+    $("#editModalTitle").textContent = isPhoto ? "Edit Photo" : "Edit Video";
+    editModal.classList.add("open");
+    editModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    editTitle.focus();
+  }
+
+  function closeEditModal() {
+    editModal.classList.remove("open");
+    editModal.setAttribute("aria-hidden", "true");
+    editTarget = null;
+    document.body.style.overflow = "";
+  }
+
+  editModalClose.addEventListener("click", closeEditModal);
+  editCancel.addEventListener("click", closeEditModal);
+  editModal.addEventListener("click", (e) => {
+    if (e.target === editModal) closeEditModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!editModal.classList.contains("open")) return;
+    if (e.key === "Escape") closeEditModal();
+  });
+
+  editSave.addEventListener("click", async () => {
+    if (!editTarget) return;
+    const { kind, record, cardEl } = editTarget;
+    const updates = { title: editTitle.value.trim() || (kind === "photo" ? "Our Memory" : "Our Moment"), description: editDesc.value.trim() };
+    if (kind === "photo") {
+      updates.category = editCategory.value;
+      updates.taken_at = editDate.value || null;
+    }
+    editSave.disabled = true;
+    editSave.textContent = "Saving...";
+    try {
+      const table = kind === "photo" ? "photos" : "videos";
+      const { error } = await supabase.from(table).update(updates).eq("id", record.id);
+      if (error) throw error;
+      Object.assign(record, updates);
+      const titleEl = $(".card-title", cardEl);
+      const descEl = $(".card-desc", cardEl);
+      if (titleEl) titleEl.textContent = record.title || (kind === "photo" ? "Our Memory" : "Our Moment");
+      if (descEl) descEl.textContent = record.description || "";
+      if (kind === "photo") {
+        const dateEl = $(".card-date", cardEl);
+        if (dateEl) dateEl.textContent = formatPhotoDate(record);
+      }
+      closeEditModal();
+      showToast(kind === "photo" ? "Photo updated" : "Video updated");
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || "Could not save the changes");
+    } finally {
+      editSave.disabled = false;
+      editSave.textContent = "Save";
+    }
+  });
 
   async function loadSavedPhotos() {
     try {
@@ -2463,13 +2554,18 @@
         <h3 class="card-title">${escapeHtml(record.title || "Our Moment")}</h3>
         <p class="card-desc">${escapeHtml(record.description || "")}</p>
       </figcaption>
-      <button class="card-delete" type="button" aria-label="Delete video">${DELETE_ICON}</button>
+      <button class="card-actions">${CARD_ACTIONS}</button>
     `;
     const del = $(".card-delete", fig);
     del.addEventListener("click", (e) => {
       e.stopPropagation();
       if (!window.confirm("Remove this video from the album?")) return;
       deleteVideo(record, fig);
+    });
+    const edt = $(".card-edit", fig);
+    edt.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditModal({ kind: "video", record, cardEl: fig });
     });
     fig.addEventListener("click", () => openVideoViewer(record, record.url));
     return fig;

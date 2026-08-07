@@ -16,7 +16,7 @@ create table if not exists public.videos (
 
 -- 2) Permissions (same open model as the photos table)
 grant usage on schema public to anon, authenticated;
-grant select, insert, delete on public.videos to anon, authenticated;
+grant select, insert, update, delete on public.videos to anon, authenticated;
 
 -- 3) Row Level Security
 alter table public.videos enable row level security;
@@ -35,6 +35,11 @@ drop policy if exists "anon delete videos" on public.videos;
 create policy "anon delete videos"
   on public.videos for delete
   using (true);
+
+drop policy if exists "anon update videos" on public.videos;
+create policy "anon update videos"
+  on public.videos for update
+  using (true) with check (true);
 
 -- 4) Realtime (so new videos appear instantly for everyone)
 do $$

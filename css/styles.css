@@ -1670,12 +1670,54 @@ section {
   width: 17px;
   height: 17px;
 }
-.card:hover .card-delete {
+.card:hover .card-delete,
+.card:focus-within .card-delete {
   opacity: 1;
   transform: translateY(0);
 }
 .card-delete:hover {
   background: var(--primary);
+}
+.card-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+}
+.card-actions .card-edit,
+.card-actions .card-delete {
+  position: static;
+  transform: none;
+}
+.card-edit {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(30, 8, 18, 0.55);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), background 0.3s;
+}
+.card-edit svg {
+  width: 16px;
+  height: 16px;
+}
+.card:hover .card-edit,
+.card:focus-within .card-edit {
+  opacity: 1;
+  transform: translateY(0);
+}
+.card-edit:hover {
+  background: #3a3a55;
 }
 
 /* ---------- Add Photo Modal ---------- */
