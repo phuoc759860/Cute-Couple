@@ -24,6 +24,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # js/config.js is gitignored (contains private keys / codes / emails),
+      # so we rebuild it here from ONE GitHub repository secret.
+      # 1) Copy js/config.example.js to js/config.js and fill in your real values.
+      # 2) In GitHub: Settings -> Secrets and variables -> Actions -> New secret,
+      #    name it SITE_CONFIG, and paste the FULL contents of js/config.js as the value.
+      # 3) The value must be base64 text. On Windows PowerShell, create it with:
+      #    [Convert]::ToBase64String([IO.File]::ReadAllBytes("js\config.js"))
+      - name: Rebuild private config from secret
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.SITE_CONFIG }}" ]; then
+            echo "::warning::SITE_CONFIG secret not set - deploying without js/config.js."
+          else
+            mkdir -p js
+            echo "${{ secrets.SITE_CONFIG }}" | base64 --decode > js/config.js
+            test -s js/config.js && echo "config rebuilt" || echo "config empty"
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
