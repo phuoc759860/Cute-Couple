@@ -4644,6 +4644,248 @@
       .subscribe();
   }
 
+  /* ---------- Free Time schedule ---------- */
+  const freeTimeOffline = $("#freeTimeOffline");
+  const freeTimeWrap = $("#freeTimeWrap");
+  const freeTimeForm = $("#freeTimeForm");
+  const ftRepeat = $("#ftRepeat");
+  const ftStart = $("#ftStart");
+  const ftEnd = $("#ftEnd");
+  const ftNote = $("#ftNote");
+  const ftAdd = $("#ftAdd");
+  const ftStatus = $("#ftStatus");
+  const ftWeek = $("#ftWeek");
+  const ftDaysWrap = $("#ftDays");
+  const ftMine = $("#ftMine");
+  let ftSlots = [];
+  let ftChannel = null;
+  let selectedFtDays = new Set([1, 2, 3, 4, 5]);
+  const FTW_DAYS = [
+    { code: 1, short: "Mon", full: "Monday" },
+    { code: 2, short: "Tue", full: "Tuesday" },
+    { code: 3, short: "Wed", full: "Wednesday" },
+    { code: 4, short: "Thu", full: "Thursday" },
+    { code: 5, short: "Fri", full: "Friday" },
+    { code: 6, short: "Sat", full: "Saturday" },
+    { code: 0, short: "Sun", full: "Sunday" },
+  ];
+
+  const timeToMin = (t) => {
+    if (!t) return null;
+    const [h, m] = t.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  };
+  const minToLabel = (min) => {
+    if (min == null) return "";
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    const hr = h % 12 || 12;
+    return `${hr}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+  };
+
+  function ftRenderDays() {
+    if (!ftDaysWrap) return;
+    $$(".ft-day-btn", ftDaysWrap).forEach((b) => {
+      const d = +b.dataset.day;
+      b.classList.toggle("active", selectedFtDays.has(d));
+    });
+  }
+
+  if (ftDaysWrap) {
+    ftDaysWrap.addEventListener("click", (e) => {
+      const btn = e.target.closest(".ft-day-btn");
+      if (!btn) return;
+      const d = +btn.dataset.day;
+      if (selectedFtDays.has(d)) selectedFtDays.delete(d);
+      else selectedFtDays.add(d);
+      ftRenderDays();
+    });
+  }
+
+  function overlapOf(r1, r2) {
+    const s = Math.max(r1[0], r2[0]);
+    const e = Math.min(r1[1], r2[1]);
+    return e > s ? [s, e] : null;
+  }
+
+  const ftSlotHTML = (color, r, label) =>
+    `<div class="ft-block ${color}" style="left:${(r[0] / 1440) * 100}%;width:${Math.max(((r[1] - r[0]) / 1440) * 100, 1)}%"><span>${label}</span></div>`;
+
+  function ftDayName(code) {
+    const d = FTW_DAYS.find((x) => x.code === code);
+    return d ? d.short : "";
+  }
+
+  function renderMySlots() {
+    if (!ftMine || !currentUser) return;
+    const mine = ftSlots.filter((r) => r.role === currentUser.role);
+    if (!mine.length) {
+      ftMine.innerHTML = `<p class="ft-mine-empty">You haven't added any free time yet.</p>`;
+      return;
+    }
+    ftMine.innerHTML = `
+      <p class="ft-mine-label">My saved slots</p>
+      <div class="ft-mine-list">${mine
+        .map(
+          (r) => `
+        <span class="ft-chip">
+          ${escapeHtml(ftDayName(r.day_of_week))} ${minToLabel(r.start_min)}–${minToLabel(r.end_min)}${r.note ? " · " + escapeHtml(r.note) : ""}${r.valid_until ? " · this week" : ""}
+          <button class="ft-chip-del" type="button" data-id="${r.id}" aria-label="Remove slot" title="Remove">&times;</button>
+        </span>`
+        )
+        .join("")}
+      </div>`;
+    $$(".ft-chip-del", ftMine).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        openConfirmDialog({
+          title: "Remove free time",
+          message: "Remove this slot from the schedule?",
+          confirmLabel: "Remove",
+          onConfirm: async () => {
+            try {
+              const { error } = await supabase.from("free_time_slots").delete().eq("id", id);
+              if (error) throw error;
+              showToast("Slot removed");
+              await loadFreeTime();
+            } catch (err) {
+              console.error(err);
+              showToast("Could not remove the slot");
+            }
+          },
+        });
+      });
+    });
+  }
+
+  function renderFreeTime() {
+    if (ftMine) renderMySlots();
+    renderFreeWeek();
+  }
+
+  function renderFreeWeek() {
+    if (!ftWeek || !currentUser) return;
+    const current = (r) => !r.valid_until || new Date(r.valid_until).getTime() >= Date.now();
+    const mine = ftSlots.filter((r) => r.role === currentUser.role && current(r));
+    const theirs = ftSlots.filter((r) => r.role !== currentUser.role && current(r));
+    ftWeek.innerHTML = FTW_DAYS.map((d) => {
+      const myRanges = mine.filter((r) => r.day_of_week === d.code).map((r) => [r.start_min, r.end_min]);
+      const theirRanges = theirs.filter((r) => r.day_of_week === d.code).map((r) => [r.start_min, r.end_min]);
+      const overlaps = [];
+      myRanges.forEach((a) =>
+        theirRanges.forEach((b) => {
+          const o = overlapOf(a, b);
+          if (o) overlaps.push(o);
+        })
+      );
+      const myHTML = myRanges.length
+        ? myRanges.map((r) => ftSlotHTML("boyfriend", r, `${minToLabel(r[0])}–${minToLabel(r[1])}`)).join("")
+        : `<span class="ft-empty">—</span>`;
+      const theirHTML = theirRanges.length
+        ? theirRanges.map((r) => ftSlotHTML("girlfriend", r, `${minToLabel(r[0])}–${minToLabel(r[1])}`)).join("")
+        : `<span class="ft-empty">—</span>`;
+      const overlapHTML = overlaps.length
+        ? overlaps.map((r) => ftSlotHTML("overlap", r, "both free")).join("")
+        : `<span class="ft-empty">—</span>`;
+      return `
+        <div class="ft-day-row">
+          <span class="ft-day-name">${d.short}</span>
+          <div class="ft-timeline">
+            <div class="ft-lane boyfriend">${myHTML}</div>
+            <div class="ft-lane girlfriend">${theirHTML}</div>
+            <div class="ft-lane overlap">${overlapHTML}</div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  async function loadFreeTime() {
+    if (!currentUser) return;
+    try {
+      const { data, error } = await supabase
+        .from("free_time_slots")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      ftSlots = data || [];
+      freeTimeOffline.hidden = true;
+      freeTimeWrap.hidden = false;
+      renderFreeTime();
+    } catch (err) {
+      console.warn("Free Time unavailable:", err.message || err);
+      freeTimeOffline.hidden = false;
+      freeTimeWrap.hidden = true;
+    }
+  }
+
+  function subscribeFreeTime() {
+    if (ftChannel || !currentUser) return;
+    ftChannel = supabase
+      .channel("couple-freetime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "free_time_slots" }, () => {
+        loadFreeTime();
+      })
+      .subscribe();
+  }
+
+  function weekEndISO() {
+    const now = new Date();
+    const monOffset = (now.getDay() + 6) % 7;
+    const end = new Date(now);
+    end.setDate(now.getDate() + (6 - monOffset));
+    end.setHours(23, 59, 59, 999);
+    return end.toISOString();
+  }
+
+  if (freeTimeForm) {
+    freeTimeForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentUser) return;
+      const start = timeToMin(ftStart.value);
+      const end = timeToMin(ftEnd.value);
+      if (start == null || end == null || end <= start) {
+        ftStatus.textContent = "Pick a valid From → To time.";
+        return;
+      }
+      if (!selectedFtDays.size) {
+        ftStatus.textContent = "Pick at least one day.";
+        return;
+      }
+      ftAdd.disabled = true;
+      ftStatus.textContent = "";
+      try {
+        const rows = [...selectedFtDays].map((d) => ({
+          day_of_week: d,
+          start_min: start,
+          end_min: end,
+          role: currentUser.role,
+          repeat: ftRepeat.value,
+          note: ftNote.value.trim(),
+          valid_until: ftRepeat.value === "this-week" ? weekEndISO() : null,
+        }));
+        const { error } = await supabase.from("free_time_slots").insert(rows);
+        if (error) throw error;
+        ftNote.value = "";
+        showToast("Free time saved");
+        await loadFreeTime();
+      } catch (err) {
+        console.error(err);
+        ftStatus.textContent = err.message || "Could not save free time.";
+      } finally {
+        ftAdd.disabled = false;
+      }
+    });
+  }
+
+  function initFreeTime() {
+    if (!currentUser) return;
+    ftRenderDays();
+    subscribeFreeTime();
+    loadFreeTime();
+  }
+
   function initCoupleFeatures() {
     if (!currentUser) return;
     datesDashboard.hidden = false;
@@ -4659,6 +4901,7 @@
     initThisOrThat();
     initOurPlaces();
     initSongFavorites();
+    initFreeTime();
   }
 
   /* ---------- Init ---------- */

@@ -98,6 +98,7 @@
         <li><a href="#story">Our Story</a></li>
         <li><a href="#countdown">Countdown</a></li>
         <li><a href="#dates">Dates</a></li>
+        <li><a href="#freetime">Free Time</a></li>
         <li><a href="#messages">Love Notes</a></li>
       </ul>
       <div class="nav-chrome">
@@ -520,6 +521,75 @@
       </div>
 
       <div class="songs-list" id="songsList"></div>
+    </div>
+  </section>
+
+  <!-- Free Time Schedule -->
+  <section class="free-time" id="freetime">
+    <div class="section-head">
+      <p class="section-eyebrow">Free Time</p>
+      <h2 class="section-title">When Are We <span class="accent">Free?</span></h2>
+      <p class="section-sub">Mark the hours you're usually free each week, so you always know when to plan time together.</p>
+    </div>
+
+    <div class="free-time-offline" id="freeTimeOffline" hidden>
+      The Free Time schedule isn't connected yet — run supabase-free-time-setup.sql to switch it on.
+    </div>
+
+    <div class="free-time-wrap" id="freeTimeWrap">
+      <div class="ft-editor">
+        <h3 class="date-card-title">My Weekly Free Time</h3>
+        <form id="freeTimeForm" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span>Repeat</span>
+              <select id="ftRepeat">
+                <option value="weekly">Every week</option>
+                <option value="this-week">Just this week</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-row">
+            <label class="field">
+              <span>From</span>
+              <input type="time" id="ftStart" value="18:00" required />
+            </label>
+            <label class="field">
+              <span>To</span>
+              <input type="time" id="ftEnd" value="21:00" required />
+            </label>
+          </div>
+          <div class="ft-days-wrap">
+            <p class="ft-week-hint">Day(s) — which days repeat?</p>
+            <div class="ft-days" id="ftDays">
+              <button type="button" class="ft-day-btn" data-day="1">Mon</button>
+              <button type="button" class="ft-day-btn" data-day="2">Tue</button>
+              <button type="button" class="ft-day-btn" data-day="3">Wed</button>
+              <button type="button" class="ft-day-btn" data-day="4">Thu</button>
+              <button type="button" class="ft-day-btn" data-day="5">Fri</button>
+              <button type="button" class="ft-day-btn" data-day="6">Sat</button>
+              <button type="button" class="ft-day-btn" data-day="0">Sun</button>
+            </div>
+          </div>
+          <label class="field">
+            <span>Note (for the other person)</span>
+            <input type="text" id="ftNote" maxlength="60" placeholder="e.g. after work, free!" autocomplete="off" />
+          </label>
+          <button class="btn btn-primary ft-add" id="ftAdd" type="submit">Add free time</button>
+          <p class="ft-status" id="ftStatus"></p>
+        </form>
+      </div>
+
+      <div class="ft-board">
+        <div class="ft-legend">
+          <span class="ft-legend-item boyfriend"><i></i>Anh F</span>
+          <span class="ft-legend-item girlfriend"><i></i>Em Mỹ</span>
+          <span class="ft-legend-item overlap"><i></i>Both free</span>
+        </div>
+        <div class="ft-mine" id="ftMine"></div>
+        <div class="ft-week" id="ftWeek"></div>
+        <p class="ft-tip">Times are weekly habits — if a plan overlaps with the other person's free time, that's a great moment for a date.</p>
+      </div>
     </div>
   </section>
 
