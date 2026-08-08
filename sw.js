@@ -3,7 +3,7 @@
    Caches the app shell so the site opens fast and works
    (mostly) offline once visited. Versioned for clean updates.
    ===================================================== */
-const VERSION = "love-v2";
+const VERSION = "love-v3";
 const CACHE = `${VERSION}-shell`;
 
 const SHELL = [
