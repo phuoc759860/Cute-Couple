@@ -99,6 +99,7 @@
         <li><a href="#countdown">Countdown</a></li>
         <li><a href="#dates">Dates</a></li>
         <li><a href="#freetime">Free Time</a></li>
+        <li><a href="#day">Our Day</a></li>
         <li><a href="#messages">Love Notes</a></li>
       </ul>
       <div class="nav-chrome">
@@ -538,64 +539,97 @@
     </div>
 
     <div class="free-time-wrap" id="freeTimeWrap">
-      <div class="ft-editor">
-        <h3 class="date-card-title">My Weekly Free Time</h3>
-        <form id="freeTimeForm" novalidate>
+      <div class="ft-board">
+        <div class="ft-toolbar">
+          <button class="ft-nav" id="ftPrevWeek" type="button" aria-label="Previous week" title="Previous week">&#8249;</button>
+          <div class="ft-range-wrap">
+            <strong class="ft-date-label" id="ftWeekLabel"></strong>
+            <button class="link-btn" id="ftThisWeek" type="button">This week</button>
+          </div>
+          <button class="ft-nav" id="ftNextWeek" type="button" aria-label="Next week" title="Next week">&#8250;</button>
+        </div>
+        <div class="ft-legend">
+          <span class="ft-legend-item boyfriend"><i></i>Anh F free</span>
+          <span class="ft-legend-item girlfriend"><i></i>Em Mỹ free</span>
+          <span class="ft-legend-item overlap"><i></i>Both free</span>
+        </div>
+        <div class="ft-week" id="ftWeek"></div>
+        <p class="ft-tip">Free time is read from <a href="#day">Our Day</a> — it's every open hour that has no plan. The golden band is when you're both free: the perfect moment for a date.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Our Day (daily schedule / day view) -->
+  <section class="day-schedule" id="day">
+    <div class="section-head">
+      <p class="section-eyebrow">Our Day</p>
+      <h2 class="section-title">Today, <span class="accent">Hour by Hour</span></h2>
+      <p class="section-sub">See what each other is up to — work, classes, chores or a date — on a shared daily timeline.</p>
+    </div>
+
+    <div class="day-schedule-offline" id="dayOffline" hidden>
+      The daily schedule isn't connected yet — run supabase-day-schedule-setup.sql to switch it on.
+    </div>
+
+    <div class="day-schedule-wrap" id="dayWrap">
+      <div class="day-editor">
+        <h3 class="date-card-title">Add a plan</h3>
+        <form id="dayForm" novalidate>
           <div class="field-row">
             <label class="field">
+              <span>Date</span>
+              <input type="date" id="dayDate" required />
+            </label>
+            <label class="field">
               <span>Repeat</span>
-              <select id="ftRepeat">
+              <select id="dayRepeat">
+                <option value="none">Once</option>
                 <option value="weekly">Every week</option>
-                <option value="this-week">Just this week</option>
-                <option value="date">On a specific date</option>
               </select>
             </label>
-            <label class="field" id="ftDateField" hidden>
-              <span>Date</span>
-              <input type="date" id="ftDate" />
-            </label>
           </div>
+          <label class="field">
+            <span>Title</span>
+            <input type="text" id="dayTitle" maxlength="80" placeholder="e.g. Work, Class, Cooking together…" autocomplete="off" />
+          </label>
           <div class="field-row">
             <label class="field">
               <span>From</span>
-              <input type="time" id="ftStart" value="18:00" required />
+              <input type="time" id="dayStart" value="09:00" required />
             </label>
             <label class="field">
               <span>To</span>
-              <input type="time" id="ftEnd" value="21:00" required />
+              <input type="time" id="dayEnd" value="10:00" required />
             </label>
           </div>
-          <div class="ft-days-wrap" id="ftDaysWrap">
-            <p class="ft-week-hint">Day(s) — which days repeat?</p>
-            <div class="ft-days" id="ftDays">
-              <button type="button" class="ft-day-btn" data-day="1">Mon</button>
-              <button type="button" class="ft-day-btn" data-day="2">Tue</button>
-              <button type="button" class="ft-day-btn" data-day="3">Wed</button>
-              <button type="button" class="ft-day-btn" data-day="4">Thu</button>
-              <button type="button" class="ft-day-btn" data-day="5">Fri</button>
-              <button type="button" class="ft-day-btn" data-day="6">Sat</button>
-              <button type="button" class="ft-day-btn" data-day="0">Sun</button>
-            </div>
+          <div class="day-cat-wrap">
+            <p class="ft-week-hint">Category</p>
+            <div class="day-cats" id="dayCats"></div>
           </div>
           <label class="field">
             <span>Detail</span>
-            <input type="text" id="ftNote" maxlength="140" placeholder="e.g. After work, free from 6pm. Want to call?" autocomplete="off" />
+            <input type="text" id="dayNote" maxlength="140" placeholder="e.g. Big meeting, do the laundry…" autocomplete="off" />
           </label>
-          <button class="btn btn-primary ft-add" id="ftAdd" type="submit">Add free time</button>
-          <p class="ft-status" id="ftStatus"></p>
+          <button class="btn btn-primary day-add" id="dayAdd" type="submit">Add to day</button>
+          <p class="day-status" id="dayStatus"></p>
         </form>
       </div>
 
-      <div class="ft-board">
-        <div class="ft-legend">
-          <span class="ft-legend-item boyfriend"><i></i>Anh F</span>
-          <span class="ft-legend-item girlfriend"><i></i>Em Mỹ</span>
-          <span class="ft-legend-item overlap"><i></i>Both free</span>
+      <div class="day-board">
+        <div class="day-toolbar">
+          <button class="day-nav" id="dayPrev" type="button" aria-label="Previous day" title="Previous day">&#8249;</button>
+          <div class="day-date-wrap">
+            <strong class="day-date-label" id="dayDateLabel"></strong>
+            <button class="link-btn day-today" id="dayToday" type="button">Today</button>
+          </div>
+          <button class="day-nav" id="dayNext" type="button" aria-label="Next day" title="Next day">&#8250;</button>
         </div>
-        <div class="ft-mine" id="ftMine"></div>
-        <div class="ft-one-off" id="ftOneOff"></div>
-        <div class="ft-week" id="ftWeek"></div>
-        <p class="ft-tip">Times are weekly habits — if a plan overlaps with the other person's free time, that's a great moment for a date.</p>
+        <div class="day-legend" id="dayLegend"></div>
+        <div class="day-scroll">
+          <div class="day-hours" id="dayHours"></div>
+          <div class="day-timeline" id="dayTimeline"></div>
+        </div>
+        <p class="day-hint" id="dayHint">Tap one of your blocks to remove it. Overlapping plans stack side by side.</p>
       </div>
     </div>
   </section>

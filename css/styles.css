@@ -5062,6 +5062,41 @@ body.site-locked {
   color: var(--ink-soft);
   font-weight: 600;
 }
+.ft-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ft-nav {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--primary-dark);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--ease);
+}
+.ft-nav:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.ft-range-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ft-date-label {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  color: var(--ink);
+}
 .ft-legend-item {
   display: inline-flex;
   align-items: center;
@@ -5085,7 +5120,7 @@ body.site-locked {
 .ft-week {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
 }
 .ft-day-row {
   display: grid;
@@ -5093,11 +5128,35 @@ body.site-locked {
   gap: 12px;
   align-items: center;
 }
+.ft-hour-row .ft-day-name {
+  display: none;
+}
+.ft-hour-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  background: var(--surface);
+  padding: 0 3px;
+  z-index: 1;
+}
 .ft-day-name {
   font-family: var(--font-serif);
   font-weight: 600;
   color: var(--ink);
   font-size: 15px;
+}
+.ft-today-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-left: 3px;
+  vertical-align: 1px;
 }
 .ft-timeline {
   position: relative;
@@ -5108,10 +5167,22 @@ body.site-locked {
 .ft-lane {
   position: relative;
   height: 24px;
-  border-radius: 8px;
-  background: var(--bg-soft);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(127, 127, 127, 0.1) 0 1px,
+      transparent 1px calc(100% / 24)
+    ),
+    var(--bg-soft);
   border: 1px solid var(--line);
-  overflow: hidden;
+}
+.ft-day-row.ft-today .ft-day-name {
+  color: var(--primary-dark);
+}
+.ft-day-row.ft-today .ft-lane {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary-soft);
 }
 .ft-block {
   position: absolute;
@@ -5123,6 +5194,10 @@ body.site-locked {
   padding: 0 8px;
   white-space: nowrap;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.ft-block.narrow span {
+  display: none;
 }
 .ft-block span {
   font-size: 11px;
@@ -5219,9 +5294,321 @@ body.site-locked {
   padding: 14px 18px;
   font-size: 14px;
 }
+
+/* ---------- Our Day (daily schedule / day view) ---------- */
+.day-schedule {
+  background: var(--bg);
+  padding: 90px 0 110px;
+  scroll-margin-top: 78px;
+}
+.day-schedule-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 30px;
+  align-items: start;
+}
+.day-editor {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 26px;
+}
+.day-editor form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.day-cat-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.day-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.day-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.day-cat i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--cat);
+  flex-shrink: 0;
+}
+.day-cat.active {
+  border-color: var(--cat);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--cat);
+}
+.day-add {
+  align-self: flex-start;
+}
+.day-status {
+  font-size: 13.5px;
+  color: var(--primary-dark);
+  min-height: 18px;
+}
+.day-board {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.day-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.day-nav {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--primary-dark);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--ease);
+}
+.day-nav:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.day-date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.day-date-label {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  color: var(--ink);
+}
+.day-today {
+  font-size: 13.5px;
+}
+.day-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.day-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.day-legend i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: var(--cat);
+  display: inline-block;
+}
+.day-scroll {
+  position: relative;
+  display: flex;
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overscroll-behavior: contain;
+}
+.day-hours {
+  position: relative;
+  flex-shrink: 0;
+  width: 54px;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--line);
+}
+.day-hour {
+  position: absolute;
+  right: 10px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--bg-soft);
+  z-index: 2;
+}
+.day-timeline {
+  position: relative;
+  flex: 1;
+}
+.day-gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  opacity: 0.55;
+}
+.day-nowline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary);
+  z-index: 3;
+}
+.day-nowline::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -3.5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.day-block {
+  position: absolute;
+  border-radius: 8px;
+  border-left: 4px solid var(--cat);
+  background: var(--cat-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 5px 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: filter 0.15s var(--ease), transform 0.15s var(--ease);
+  z-index: 1;
+}
+.day-block:hover {
+  filter: brightness(1.05);
+}
+.day-block-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.day-block-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.day-block-recur {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-right: 3px;
+}
+.day-block.role-girlfriend .day-block-title::after {
+  content: " · Mỹ";
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+.day-block.role-boyfriend .day-block-title::after {
+  content: " · F";
+  font-weight: 600;
+  color: #2f7c94;
+}
+.day-hint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin: 0;
+}
+.day-schedule-offline {
+  max-width: 640px;
+  margin: 0 auto;
+  color: var(--ink-soft);
+  background: var(--accent-soft);
+  border: 1px dashed var(--accent);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 14px;
+}
 @media (max-width: 900px) {
   .free-time-wrap {
     grid-template-columns: 1fr;
+  }
+  .day-schedule-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .ft-editor,
+  .ft-board {
+    padding: 18px;
+  }
+  .day-editor,
+  .day-board {
+    padding: 18px;
+  }
+  .day-date-label {
+    font-size: 17px;
+  }
+  .day-hours {
+    width: 44px;
+  }
+  .day-block {
+    padding: 4px 6px;
+    border-left-width: 3px;
+  }
+  .day-block-title {
+    font-size: 11.5px;
+  }
+  .day-block-time {
+    font-size: 10.5px;
+  }
+  .day-legend {
+    gap: 8px;
+    font-size: 11.5px;
+  }
+  .ft-day-row {
+    grid-template-columns: 40px 1fr;
+    gap: 8px;
+  }
+  .ft-day-name {
+    font-size: 13px;
+  }
+  .ft-timeline {
+    gap: 3px;
+  }
+  .ft-lane {
+    height: 22px;
+  }
+  .ft-chip {
+    font-size: 12.5px;
+    padding: 6px 9px 6px 12px;
   }
 }
 

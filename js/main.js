@@ -4657,26 +4657,17 @@
       .subscribe();
   }
 
-  /* ---------- Free Time schedule ---------- */
+  /* ---------- Free Time (derived from the day schedule) ---------- */
   const freeTimeOffline = $("#freeTimeOffline");
   const freeTimeWrap = $("#freeTimeWrap");
-  const freeTimeForm = $("#freeTimeForm");
-  const ftRepeat = $("#ftRepeat");
-  const ftStart = $("#ftStart");
-  const ftEnd = $("#ftEnd");
-  const ftNote = $("#ftNote");
-  const ftAdd = $("#ftAdd");
-  const ftStatus = $("#ftStatus");
   const ftWeek = $("#ftWeek");
-  const ftDate = $("#ftDate");
-  const ftDateField = $("#ftDateField");
-  const ftDaysWrapOuter = $("#ftDaysWrap");
-  const ftDaysWrap = $("#ftDays");
-  const ftMine = $("#ftMine");
-  const ftOneOff = $("#ftOneOff");
-  let ftSlots = [];
+  const ftWeekLabel = $("#ftWeekLabel");
+  const ftPrevWeek = $("#ftPrevWeek");
+  const ftNextWeek = $("#ftNextWeek");
+  const ftThisWeek = $("#ftThisWeek");
+  let ftItems = [];
   let ftChannel = null;
-  let selectedFtDays = new Set([1, 2, 3, 4, 5]);
+  let ftWeekStart = mondayOf(new Date());
   const FTW_DAYS = [
     { code: 1, short: "Mon", full: "Monday" },
     { code: 2, short: "Tue", full: "Tuesday" },
@@ -4701,37 +4692,58 @@
     return `${hr}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
   };
 
-  function ftRenderDays() {
-    if (!ftDaysWrap) return;
-    $$(".ft-day-btn", ftDaysWrap).forEach((b) => {
-      const d = +b.dataset.day;
-      b.classList.toggle("active", selectedFtDays.has(d));
-    });
+  function mondayOf(d) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+  function ftShiftWeek(n) {
+    const d = new Date(ftWeekStart);
+    d.setDate(d.getDate() + n * 7);
+    ftWeekStart = d;
   }
 
-  if (ftDaysWrap) {
-    ftDaysWrap.addEventListener("click", (e) => {
-      const btn = e.target.closest(".ft-day-btn");
-      if (!btn) return;
-      const d = +btn.dataset.day;
-      if (selectedFtDays.has(d)) selectedFtDays.delete(d);
-      else selectedFtDays.add(d);
-      ftRenderDays();
-    });
-  }
-
-  function ftSyncMode() {
-    const mode = ftRepeat.value;
-    const isDate = mode === "date";
-    if (ftDateField) ftDateField.hidden = !isDate;
-    if (ftDaysWrapOuter) ftDaysWrapOuter.hidden = isDate;
-    if (isDate && ftDate && !ftDate.value) {
-      const today = new Date();
-      const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-      ftDate.value = iso;
+  function ftBusyFor(role, iso) {
+    const dow = new Date(iso + "T00:00:00").getDay();
+    const out = [];
+    for (const it of ftItems) {
+      if (it.role !== role) continue;
+      const applies = it.repeat === "weekly" ? it.day_of_week === dow : it.sch_date === iso;
+      if (applies) out.push([it.start_min, it.end_min]);
     }
+    out.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    return out;
   }
-  if (ftRepeat) ftRepeat.addEventListener("change", ftSyncMode);
+
+  function ftFreeRanges(busy) {
+    const merged = [];
+    for (const r of [...busy].sort((a, b) => a[0] - b[0] || a[1] - b[1])) {
+      const last = merged[merged.length - 1];
+      if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+      else merged.push([r[0], r[1]]);
+    }
+    const free = [];
+    let cur = 0;
+    for (const [s, e] of merged) {
+      if (s > cur) free.push([cur, s]);
+      cur = Math.max(cur, e);
+    }
+    if (cur < 1440) free.push([cur, 1440]);
+    return free;
+  }
+
+  function ftIntersect(a, b) {
+    const out = [];
+    for (const [s1, e1] of a) {
+      for (const [s2, e2] of b) {
+        const s = Math.max(s1, s2);
+        const e = Math.min(e1, e2);
+        if (e > s) out.push([s, e]);
+      }
+    }
+    return out;
+  }
 
   function overlapOf(r1, r2) {
     const s = Math.max(r1[0], r2[0]);
@@ -4739,164 +4751,90 @@
     return e > s ? [s, e] : null;
   }
 
-  const ftSlotHTML = (color, r, label) =>
-    `<div class="ft-block ${color}" style="left:${(r[0] / 1440) * 100}%;width:${Math.max(((r[1] - r[0]) / 1440) * 100, 1)}%"><span>${label}</span></div>`;
+  const ftSlotHTML = (color, r, label) => {
+    const w = Math.max(((r[1] - r[0]) / 1440) * 100, 1);
+    return `<div class="ft-block ${color}${w < 7 ? " narrow" : ""}" style="left:${(r[0] / 1440) * 100}%;width:${w}%"><span>${label}</span></div>`;
+  };
+
+  const HOUR_TICKS = [];
+  for (let h = 0; h < 24; h += 3) {
+    HOUR_TICKS.push({
+      left: (h * 60 / 1440) * 100,
+      label: `${h % 12 || 12}${h < 12 ? "a" : "p"}`,
+    });
+  }
 
   function ftDayName(code) {
     const d = FTW_DAYS.find((x) => x.code === code);
     return d ? d.short : "";
   }
 
-  function ftDateShort(iso) {
-    if (!iso) return "";
-    const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
-    if (isNaN(d)) return iso;
-    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-  }
-
-  function renderMySlots() {
-    if (!ftMine || !currentUser) return;
-    const mine = ftSlots.filter((r) => r.role === currentUser.role);
-    if (!mine.length) {
-      ftMine.innerHTML = `<p class="ft-mine-empty">You haven't added any free time yet.</p>`;
-      return;
-    }
-    ftMine.innerHTML = `
-      <p class="ft-mine-label">My saved slots</p>
-      <div class="ft-mine-list">${mine
-        .map(
-          (r) => `
-        <span class="ft-chip">
-          ${r.slot_date ? escapeHtml(ftDateShort(r.slot_date)) : escapeHtml(ftDayName(r.day_of_week))} ${minToLabel(r.start_min)}–${minToLabel(r.end_min)}${r.note ? " · " + escapeHtml(r.note) : ""}${r.valid_until ? " · this week" : ""}
-          <button class="ft-chip-del" type="button" data-id="${r.id}" aria-label="Remove slot" title="Remove">&times;</button>
-        </span>`
-        )
-        .join("")}
-      </div>`;
-    $$(".ft-chip-del", ftMine).forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.id;
-        openConfirmDialog({
-          title: "Remove free time",
-          message: "Remove this slot from the schedule?",
-          confirmLabel: "Remove",
-          onConfirm: async () => {
-            try {
-              const { error } = await supabase.from("free_time_slots").delete().eq("id", id);
-              if (error) throw error;
-              showToast("Slot removed");
-              await loadFreeTime();
-            } catch (err) {
-              console.error(err);
-              showToast("Could not remove the slot");
-            }
-          },
-        });
-      });
-    });
-  }
-
-  function renderFreeTime() {
-    if (ftMine) renderMySlots();
-    renderOneOff();
-    renderFreeWeek();
-  }
-
-  function renderOneOff() {
-    if (!ftOneOff || !currentUser) return;
-    const today = todayISO();
-    const upcoming = ftSlots
-      .filter((r) => r.repeat === "date" && r.slot_date && r.slot_date >= today)
-      .sort((a, b) => (a.slot_date < b.slot_date ? -1 : 1));
-    if (!upcoming.length) {
-      ftOneOff.innerHTML = "";
-      return;
-    }
-    ftOneOff.innerHTML = `
-      <p class="ft-mine-label">Upcoming one-off free time</p>
-      <div class="ft-mine-list">${upcoming
-        .map((r) => {
-          const who = r.role === currentUser.role ? "You" : COUPLE[r.role].name;
-          return `
-          <span class="ft-chip ${r.role === "girlfriend" ? "ft-chip-gf" : "ft-chip-bf"}">
-            ${escapeHtml(ftDateShort(r.slot_date))} ${minToLabel(r.start_min)}–${minToLabel(r.end_min)} · ${escapeHtml(who)}${r.note ? " — " + escapeHtml(r.note) : ""}
-            ${r.role === currentUser.role ? `<button class="ft-chip-del" type="button" data-id="${r.id}" aria-label="Remove slot" title="Remove">&times;</button>` : ""}
-          </span>`;
-        })
-        .join("")}
-      </div>`;
-    $$(".ft-chip-del", ftOneOff).forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.id;
-        openConfirmDialog({
-          title: "Remove free time",
-          message: "Remove this slot from the schedule?",
-          confirmLabel: "Remove",
-          onConfirm: async () => {
-            try {
-              const { error } = await supabase.from("free_time_slots").delete().eq("id", id);
-              if (error) throw error;
-              showToast("Slot removed");
-              await loadFreeTime();
-            } catch (err) {
-              console.error(err);
-              showToast("Could not remove the slot");
-            }
-          },
-        });
-      });
-    });
-  }
-
   function renderFreeWeek() {
     if (!ftWeek || !currentUser) return;
-    const current = (r) => (!r.valid_until || new Date(r.valid_until).getTime() >= Date.now()) && r.repeat !== "date";
-    const mine = ftSlots.filter((r) => r.role === currentUser.role && current(r));
-    const theirs = ftSlots.filter((r) => r.role !== currentUser.role && current(r));
-    ftWeek.innerHTML = FTW_DAYS.map((d) => {
-      const myRanges = mine.filter((r) => r.day_of_week === d.code).map((r) => [r.start_min, r.end_min]);
-      const theirRanges = theirs.filter((r) => r.day_of_week === d.code).map((r) => [r.start_min, r.end_min]);
-      const overlaps = [];
-      myRanges.forEach((a) =>
-        theirRanges.forEach((b) => {
-          const o = overlapOf(a, b);
-          if (o) overlaps.push(o);
-        })
-      );
-      const myHTML = myRanges.length
-        ? myRanges.map((r) => ftSlotHTML("boyfriend", r, `${minToLabel(r[0])}–${minToLabel(r[1])}`)).join("")
+    const todayDow = new Date().getDay();
+    const hourScale = `
+      <div class="ft-day-row ft-hour-row">
+        <span class="ft-day-name"></span>
+        <div class="ft-timeline">
+          ${HOUR_TICKS.map((t) => `<span class="ft-hour-tick" style="left:${t.left}%">${t.label}</span>`).join("")}
+        </div>
+      </div>`;
+    const rows = FTW_DAYS.map((d) => {
+      const monday = mondayOf(ftWeekStart);
+      const dayDate = new Date(monday);
+      const off = d.code === 0 ? 6 : d.code - 1;
+      dayDate.setDate(monday.getDate() + off);
+      const iso = toISODate(dayDate);
+      const bfBusy = ftBusyFor("boyfriend", iso);
+      const gfBusy = ftBusyFor("girlfriend", iso);
+      const bfFree = ftFreeRanges(bfBusy);
+      const gfFree = ftFreeRanges(gfBusy);
+      const bothFree = ftIntersect(bfFree, gfFree);
+      const hisHTML = bfFree.length
+        ? bfFree.map((r) => ftSlotHTML("boyfriend", r, `${minToLabel(r[0])}–${minToLabel(r[1])}`)).join("")
         : `<span class="ft-empty">—</span>`;
-      const theirHTML = theirRanges.length
-        ? theirRanges.map((r) => ftSlotHTML("girlfriend", r, `${minToLabel(r[0])}–${minToLabel(r[1])}`)).join("")
+      const herHTML = gfFree.length
+        ? gfFree.map((r) => ftSlotHTML("girlfriend", r, `${minToLabel(r[0])}–${minToLabel(r[1])}`)).join("")
         : `<span class="ft-empty">—</span>`;
-      const overlapHTML = overlaps.length
-        ? overlaps.map((r) => ftSlotHTML("overlap", r, "both free")).join("")
+      const overlapHTML = bothFree.length
+        ? bothFree.map((r) => ftSlotHTML("overlap", r, "both free")).join("")
         : `<span class="ft-empty">—</span>`;
       return `
-        <div class="ft-day-row">
-          <span class="ft-day-name">${d.short}</span>
+        <div class="ft-day-row${d.code === todayDow ? " ft-today" : ""}">
+          <span class="ft-day-name">${d.short}${d.code === todayDow ? '<i class="ft-today-dot"></i>' : ""}</span>
           <div class="ft-timeline">
-            <div class="ft-lane boyfriend">${myHTML}</div>
-            <div class="ft-lane girlfriend">${theirHTML}</div>
+            <div class="ft-lane boyfriend">${hisHTML}</div>
+            <div class="ft-lane girlfriend">${herHTML}</div>
             <div class="ft-lane overlap">${overlapHTML}</div>
           </div>
         </div>`;
     }).join("");
+    ftWeek.innerHTML = hourScale + rows;
+    renderFreeWeekLabel();
+  }
+
+  function renderFreeWeekLabel() {
+    if (!ftWeekLabel || !ftWeekStart) return;
+    const start = mondayOf(ftWeekStart);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    ftWeekLabel.textContent = `${fmt(start)} – ${fmt(end)}`;
   }
 
   async function loadFreeTime() {
     if (!currentUser) return;
     try {
       const { data, error } = await supabase
-        .from("free_time_slots")
+        .from("schedule_items")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .order("start_min", { ascending: true })
+        .limit(5000);
       if (error) throw error;
-      ftSlots = data || [];
+      ftItems = data || [];
       freeTimeOffline.hidden = true;
       freeTimeWrap.hidden = false;
-      renderFreeTime();
+      renderFreeWeek();
     } catch (err) {
       console.warn("Free Time unavailable:", err.message || err);
       freeTimeOffline.hidden = false;
@@ -4908,90 +4846,324 @@
     if (ftChannel || !currentUser) return;
     ftChannel = supabase
       .channel("couple-freetime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "free_time_slots" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedule_items" }, () => {
         loadFreeTime();
       })
       .subscribe();
   }
 
-  function weekEndISO() {
-    const now = new Date();
-    const monOffset = (now.getDay() + 6) % 7;
-    const end = new Date(now);
-    end.setDate(now.getDate() + (6 - monOffset));
-    end.setHours(23, 59, 59, 999);
-    return end.toISOString();
+  if (ftPrevWeek) {
+    ftPrevWeek.addEventListener("click", () => {
+      ftShiftWeek(-1);
+      loadFreeTime();
+    });
   }
-
-  if (freeTimeForm) {
-    freeTimeForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!currentUser) return;
-      const start = timeToMin(ftStart.value);
-      const end = timeToMin(ftEnd.value);
-      if (start == null || end == null || end <= start) {
-        ftStatus.textContent = "Pick a valid From → To time.";
-        return;
-      }
-      const mode = ftRepeat.value;
-      if (mode === "date") {
-        if (!ftDate.value) {
-          ftStatus.textContent = "Pick a date for this slot.";
-          return;
-        }
-      } else if (!selectedFtDays.size) {
-        ftStatus.textContent = "Pick at least one day.";
-        return;
-      }
-      ftAdd.disabled = true;
-      ftStatus.textContent = "";
-      try {
-        let rows;
-        if (mode === "date") {
-          const d = new Date(ftDate.value + "T00:00:00");
-          rows = [
-            {
-              day_of_week: d.getDay(),
-              start_min: start,
-              end_min: end,
-              role: currentUser.role,
-              repeat: "date",
-              slot_date: ftDate.value,
-              note: ftNote.value.trim(),
-              valid_until: null,
-            },
-          ];
-        } else {
-          rows = [...selectedFtDays].map((d) => ({
-            day_of_week: d,
-            start_min: start,
-            end_min: end,
-            role: currentUser.role,
-            repeat: ftRepeat.value,
-            note: ftNote.value.trim(),
-            valid_until: ftRepeat.value === "this-week" ? weekEndISO() : null,
-          }));
-        }
-        const { error } = await supabase.from("free_time_slots").insert(rows);
-        if (error) throw error;
-        ftNote.value = "";
-        showToast("Free time saved");
-        await loadFreeTime();
-      } catch (err) {
-        console.error(err);
-        ftStatus.textContent = err.message || "Could not save free time.";
-      } finally {
-        ftAdd.disabled = false;
-      }
+  if (ftNextWeek) {
+    ftNextWeek.addEventListener("click", () => {
+      ftShiftWeek(1);
+      loadFreeTime();
+    });
+  }
+  if (ftThisWeek) {
+    ftThisWeek.addEventListener("click", () => {
+      ftWeekStart = mondayOf(new Date());
+      loadFreeTime();
     });
   }
 
   function initFreeTime() {
     if (!currentUser) return;
-    ftRenderDays();
-    ftSyncMode();
     subscribeFreeTime();
     loadFreeTime();
+  }
+
+  /* ---------- Our Day (daily schedule / day view) ---------- */
+  const dayOffline = $("#dayOffline");
+  const dayWrap = $("#dayWrap");
+  const dayForm = $("#dayForm");
+  const dayDate = $("#dayDate");
+  const dayRepeat = $("#dayRepeat");
+  const dayTitle = $("#dayTitle");
+  const dayStart = $("#dayStart");
+  const dayEnd = $("#dayEnd");
+  const dayNote = $("#dayNote");
+  const dayAdd = $("#dayAdd");
+  const dayStatus = $("#dayStatus");
+  const dayCats = $("#dayCats");
+  const dayPrev = $("#dayPrev");
+  const dayNext = $("#dayNext");
+  const dayToday = $("#dayToday");
+  const dayDateLabel = $("#dayDateLabel");
+  const dayHours = $("#dayHours");
+  const dayTimeline = $("#dayTimeline");
+  const dayScroll = $(".day-scroll");
+  const dayLegend = $("#dayLegend");
+  const DAY_CATEGORIES = [
+    { key: "date", label: "Date", color: "#e0527a" },
+    { key: "work", label: "Work", color: "#4f7df9" },
+    { key: "study", label: "Study", color: "#8e5cf7" },
+    { key: "chores", label: "Chores", color: "#e0a63a" },
+    { key: "sleep", label: "Sleep", color: "#5e6f8d" },
+    { key: "rest", label: "Relax", color: "#3ecf8e" },
+    { key: "exercise", label: "Gym", color: "#1fa2c0" },
+    { key: "fun", label: "Fun", color: "#f47e4b" },
+  ];
+  let dayItems = [];
+  let dayChannel = null;
+  let daySel = todayISO();
+  let daySelCat = "date";
+  let dayScrollDone = false;
+
+  const hexToRgba = (hex, a) => {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  };
+  const dayCat = (k) => DAY_CATEGORIES.find((c) => c.key === k) || DAY_CATEGORIES[0];
+  const dayHour = () => (window.innerWidth < 560 ? 46 : 64);
+  const dayAddDays = (iso, n) => {
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return toISODate(d);
+  };
+
+  function renderDayCats() {
+    if (!dayCats) return;
+    dayCats.innerHTML = DAY_CATEGORIES.map(
+      (c) => `<button type="button" class="day-cat${c.key === daySelCat ? " active" : ""}" data-cat="${c.key}" style="--cat:${c.color}"><i></i>${c.label}</button>`
+    ).join("");
+    $$(".day-cat", dayCats).forEach((b) => {
+      b.addEventListener("click", () => {
+        daySelCat = b.dataset.cat;
+        renderDayCats();
+      });
+    });
+  }
+  if (dayForm) dayForm.addEventListener("reset", renderDayCats);
+  if (dayDate && !dayDate.value) dayDate.value = todayISO();
+
+  function layoutDay(items) {
+    const sorted = [...items].sort((a, b) => a.start_min - b.start_min || a.end_min - b.end_min);
+    const clusters = [];
+    let cur = [];
+    let curEnd = -1;
+    for (const it of sorted) {
+      if (cur.length && it.start_min >= curEnd) {
+        clusters.push(cur);
+        cur = [];
+      }
+      cur.push(it);
+      curEnd = Math.max(curEnd, it.end_min);
+    }
+    if (cur.length) clusters.push(cur);
+    const out = [];
+    for (const cl of clusters) {
+      const colEnds = [];
+      const placed = [];
+      for (const it of cl) {
+        let col = 0;
+        while (colEnds[col] && colEnds[col] > it.start_min) col++;
+        colEnds[col] = it.end_min;
+        placed.push({ it, col });
+      }
+      const total = colEnds.length;
+      placed.forEach((p) => out.push({ ...p, total }));
+    }
+    return out;
+  }
+
+  function renderDayBoard() {
+    if (!dayHours || !dayTimeline) return;
+    const H = dayHour();
+    const hours = Array.from({ length: 24 }, (_, h) => h);
+    dayHours.style.height = `${24 * H}px`;
+    dayHours.innerHTML = hours
+      .map((h) => `<span class="day-hour" style="top:${h * H}px">${h === 0 ? "12a" : h === 12 ? "12p" : h < 12 ? `${h}a` : `${h - 12}p`}</span>`)
+      .join("");
+    const gridlines = hours.map((h) => `<div class="day-gridline" style="top:${h * H}px"></div>`).join("");
+    const laid = layoutDay(dayItems);
+    const now = new Date();
+    const isToday = daySel === todayISO();
+    const nowTop = isToday ? ((now.getHours() * 60 + now.getMinutes()) / 1440) * 24 * H : -1;
+    const blocks = laid
+      .map(({ it, col, total }) => {
+        const c = dayCat(it.category);
+        const top = (it.start_min / 60) * H;
+        const h = Math.max(((it.end_min - it.start_min) / 60) * H, 6);
+        const w = 100 / total;
+        const left = col * w;
+        const roleCls = it.role === "girlfriend" ? "role-girlfriend" : "role-boyfriend";
+        const note = it.note ? `<div class="day-block-time">${escapeHtml(it.note)}</div>` : "";
+        const recur = it.repeat === "weekly" ? '<span class="day-block-recur" title="Repeats every week">&#8635;</span>' : "";
+        return `
+          <div class="day-block ${roleCls}" data-id="${it.id}" data-role="${it.role}"
+            style="top:${top}px;height:${h}px;left:${left}%;width:${w}%;--cat:${c.color};--cat-bg:${hexToRgba(c.color, 0.14)}">
+            <div class="day-block-title">${recur}${escapeHtml(it.title)}</div>
+            <div class="day-block-time">${minToLabel(it.start_min)}–${minToLabel(it.end_min)}</div>
+            ${note}
+          </div>`;
+      })
+      .join("");
+    const nowline = nowTop >= 0 ? `<div class="day-nowline" style="top:${nowTop}px"></div>` : "";
+    dayTimeline.style.height = `${24 * H}px`;
+    dayTimeline.innerHTML = gridlines + nowline + blocks;
+  }
+
+  function renderDayLegend() {
+    if (!dayLegend) return;
+    dayLegend.innerHTML = DAY_CATEGORIES.map((c) => `<span style="--cat:${c.color}"><i></i>${c.label}</span>`).join("");
+  }
+
+  function renderDayMeta() {
+    if (!dayDateLabel) return;
+    const isToday = daySel === todayISO();
+    const d = new Date(daySel + "T00:00:00");
+    const lbl = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + (isToday ? " · Today" : "");
+    dayDateLabel.textContent = lbl;
+  }
+
+  function renderDay() {
+    renderDayMeta();
+    renderDayBoard();
+    if (!dayScroll) return;
+    if (daySel === todayISO() && !dayScrollDone) {
+      const H = dayHour();
+      dayScroll.scrollTop = Math.max(new Date().getHours() * H - 60, 0);
+      dayScrollDone = true;
+    }
+  }
+
+  function wireDayBlocks() {
+    if (!dayTimeline) return;
+    dayTimeline.addEventListener("click", (e) => {
+      const block = e.target.closest(".day-block");
+      if (!block) return;
+      const { id, role } = block.dataset;
+      const item = dayItems.find((i) => i.id === id);
+      if (!item) return;
+      if (role === currentUser.role) {
+        const recurring = item.repeat === "weekly";
+        openConfirmDialog({
+          title: `Remove "${item.title}"?`,
+          message: recurring
+            ? `This repeats every ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][item.day_of_week || 0]}. Remove it everywhere?`
+            : `Delete this plan for ${dayDateLabel.textContent}?`,
+          confirmLabel: "Remove",
+          onConfirm: async () => {
+            try {
+              const { error } = await supabase.from("schedule_items").delete().eq("id", id);
+              if (error) throw error;
+              showToast("Plan removed");
+              await loadDay();
+            } catch (err) {
+              console.error(err);
+              showToast("Could not remove the plan");
+            }
+          },
+        });
+      } else {
+        showToast(`${item.title} · ${minToLabel(item.start_min)}–${minToLabel(item.end_min)}${item.note ? " — " + item.note : ""}`);
+      }
+    });
+  }
+
+  async function loadDay() {
+    if (!currentUser) return;
+    try {
+      const { data, error } = await supabase
+        .from("schedule_items")
+        .select("*")
+        .order("start_min", { ascending: true })
+        .limit(5000);
+      if (error) throw error;
+      const dow = new Date(daySel + "T00:00:00").getDay();
+      dayItems = (data || []).filter(
+        (r) => (r.repeat === "weekly" ? r.day_of_week === dow : r.sch_date === daySel)
+      );
+      dayOffline.hidden = true;
+      dayWrap.hidden = false;
+      renderDay();
+    } catch (err) {
+      console.warn("Our Day unavailable:", err.message || err);
+      dayOffline.hidden = false;
+      dayWrap.hidden = true;
+    }
+  }
+
+  function subscribeDay() {
+    if (dayChannel || !currentUser) return;
+    dayChannel = supabase
+      .channel("couple-schedule")
+      .on("postgres_changes", { event: "*", schema: "public", table: "schedule_items" }, () => {
+        loadDay();
+      })
+      .subscribe();
+  }
+
+  if (dayPrev) dayPrev.addEventListener("click", () => { daySel = dayAddDays(daySel, -1); loadDay(); });
+  if (dayNext) dayNext.addEventListener("click", () => { daySel = dayAddDays(daySel, 1); loadDay(); });
+  if (dayToday) dayToday.addEventListener("click", () => { daySel = todayISO(); loadDay(); });
+
+  if (dayForm) {
+    dayForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentUser) return;
+      const start = timeToMin(dayStart.value);
+      const end = timeToMin(dayEnd.value);
+      if (start == null || end == null || end <= start) {
+        dayStatus.textContent = "Pick a valid From → To time.";
+        return;
+      }
+      if (!dayDate.value) {
+        dayStatus.textContent = "Pick a date for this plan.";
+        return;
+      }
+      const title = dayTitle.value.trim();
+      if (!title) {
+        dayStatus.textContent = "Give the plan a title.";
+        return;
+      }
+      dayAdd.disabled = true;
+      dayStatus.textContent = "";
+      const repeat = dayRepeat && dayRepeat.value === "weekly" ? "weekly" : "none";
+      try {
+        const newDate = new Date(dayDate.value + "T00:00:00");
+        const { error } = await supabase.from("schedule_items").insert({
+          sch_date: dayDate.value,
+          day_of_week: repeat === "weekly" ? newDate.getDay() : null,
+          repeat,
+          title,
+          start_min: start,
+          end_min: end,
+          role: currentUser.role,
+          category: daySelCat,
+          note: dayNote.value.trim(),
+        });
+        if (error) throw error;
+        dayNote.value = "";
+        dayTitle.value = "";
+        showToast("Plan saved");
+        if (dayDate.value !== daySel) {
+          daySel = dayDate.value;
+          loadDay();
+        } else {
+          await loadDay();
+        }
+      } catch (err) {
+        console.error(err);
+        dayStatus.textContent = err.message || "Could not save the plan.";
+      } finally {
+        dayAdd.disabled = false;
+      }
+    });
+  }
+
+  function initDaySchedule() {
+    if (!currentUser) return;
+    renderDayCats();
+    renderDayLegend();
+    wireDayBlocks();
+    subscribeDay();
+    loadDay();
   }
 
   function initCoupleFeatures() {
@@ -5010,6 +5182,7 @@
     initOurPlaces();
     initSongFavorites();
     initFreeTime();
+    initDaySchedule();
   }
 
   /* ---------- Init ---------- */
