@@ -126,6 +126,7 @@
         </button>
       </div>
     </nav>
+    <div class="nav-backdrop" id="navBackdrop"></div>
   </header>
 
   <!-- Hero -->
@@ -546,7 +547,12 @@
               <select id="ftRepeat">
                 <option value="weekly">Every week</option>
                 <option value="this-week">Just this week</option>
+                <option value="date">On a specific date</option>
               </select>
+            </label>
+            <label class="field" id="ftDateField" hidden>
+              <span>Date</span>
+              <input type="date" id="ftDate" />
             </label>
           </div>
           <div class="field-row">
@@ -559,7 +565,7 @@
               <input type="time" id="ftEnd" value="21:00" required />
             </label>
           </div>
-          <div class="ft-days-wrap">
+          <div class="ft-days-wrap" id="ftDaysWrap">
             <p class="ft-week-hint">Day(s) — which days repeat?</p>
             <div class="ft-days" id="ftDays">
               <button type="button" class="ft-day-btn" data-day="1">Mon</button>
@@ -572,8 +578,8 @@
             </div>
           </div>
           <label class="field">
-            <span>Note (for the other person)</span>
-            <input type="text" id="ftNote" maxlength="60" placeholder="e.g. after work, free!" autocomplete="off" />
+            <span>Detail</span>
+            <input type="text" id="ftNote" maxlength="140" placeholder="e.g. After work, free from 6pm. Want to call?" autocomplete="off" />
           </label>
           <button class="btn btn-primary ft-add" id="ftAdd" type="submit">Add free time</button>
           <p class="ft-status" id="ftStatus"></p>
@@ -587,6 +593,7 @@
           <span class="ft-legend-item overlap"><i></i>Both free</span>
         </div>
         <div class="ft-mine" id="ftMine"></div>
+        <div class="ft-one-off" id="ftOneOff"></div>
         <div class="ft-week" id="ftWeek"></div>
         <p class="ft-tip">Times are weekly habits — if a plan overlaps with the other person's free time, that's a great moment for a date.</p>
       </div>
